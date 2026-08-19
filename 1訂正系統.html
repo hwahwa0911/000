@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>訂正作業系統 - 班級自主管理平台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #F3F4F6;
+      font-family: "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+    }
+    .bg-banner-green { background-color: #0D5C53; } 
+    .seat-btn {
+      transition: all 0.15s ease-in-out;
+    }
+    .seat-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+</head>
+<body class="p-3 md:p-5 text-gray-800 leading-relaxed">
+
+  <!-- 置頂看板 -->
+  <header class="max-w-7xl mx-auto mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-gray-200 pb-3">
+    <div>
+      <h1 class="text-xl md:text-2xl font-black text-[#0D5C53] tracking-wide flex items-center gap-2">
+        📢 今日作業訂正公告板
+      </h1>
+      <p class="text-xs text-gray-500 font-bold mt-0.5">班級自主管理平台</p>
+    </div>
+    <div class="flex-1 text-center py-2 bg-emerald-50 rounded-xl border border-emerald-100 max-w-2xl mx-auto md:py-3 shadow-3xs">
+      <p class="text-sm md:text-lg font-black text-[#0D5C53] tracking-wider">
+        「你不是做不到，只是還沒做到，每個錯誤都是前進的證明」
+      </p>
+    </div>
+    <div class="flex items-center gap-2 self-end md:self-auto">
+      <span class="text-xs bg-teal-900/10 text-teal-950 px-3 py-1.5 rounded-lg border border-teal-200/50 font-bold" id="header-date">
+        📅 載入中...
+      </span>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto flex flex-col gap-4">
+
+    <!-- 📌 歷史保留橫列區 (排除多餘贅字，直接折行呈現) -->
+    <section id="pinned-section-container" class="bg-purple-50 border border-purple-200 p-3 rounded-xl shadow-xs" style="display: none;">
+      <div class="flex flex-wrap items-center gap-2 w-full text-xs" id="pinned-homework-row"></div>
+    </section>
+
+    <!-- 今日一般功課卡片區 -->
+    <section>
+      <div id="homework-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+        <!-- JS 動態渲染 -->
+      </div>
+    </section>
+
+    <!-- 當日統計區 -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      
+      <!-- 第一欄 -->
+      <div class="bg-emerald-50/80 border border-emerald-200 p-3.5 rounded-xl shadow-xs flex flex-col justify-between min-h-[180px]">
+        <div>
+          <h3 class="text-xs font-black text-emerald-800 flex justify-between items-center border-b border-emerald-200 pb-1.5 mb-2">
+            <span id="diligent-header-text">👑 1. 今日0訂正座號:(作業用心，不用訂正，超棒!)</span>
+            <span id="diligent-count-badge" class="bg-emerald-200 text-emerald-900 text-[9px] px-1.5 py-0.2 rounded font-bold">0 人</span>
+          </h3>
+          <div class="flex flex-wrap gap-1" id="daily-perfect-students"></div>
+        </div>
+        <div class="mt-3 pt-2 border-t border-emerald-200/50">
+          <div class="text-[10px] text-emerald-700 font-bold flex items-center justify-between mb-1">
+            <span>🏅 本週訂正次數最少前五名(0次未訂正):</span>
+            <span class="text-[8px] text-gray-400 font-normal">※ 僅表揚完全 0 缺者</span>
+          </div>
+          <div class="flex items-center gap-1" id="diligent-alltime-leaders"></div>
+        </div>
+      </div>
+
+      <!-- 第二欄 -->
+      <div class="bg-amber-50/80 border border-amber-200 p-3.5 rounded-xl shadow-xs flex flex-col justify-between min-h-[180px]">
+        <div>
+          <h3 class="text-xs font-black text-amber-800 flex justify-between items-center border-b border-amber-200 pb-1.5 mb-2">
+            <span>⚡ 2. 今日最快完成前 5 名 (訂正有效率)</span>
+            <span class="bg-amber-200 text-amber-900 text-[9px] px-1.5 py-0.5 rounded font-bold">今日最快</span>
+          </h3>
+          <div class="flex flex-wrap gap-1.5" id="daily-speedy-students"></div>
+        </div>
+        <div class="mt-3 pt-2 border-t border-amber-200/50">
+          <div class="text-[10px] text-amber-700 font-bold flex items-center justify-between mb-1">
+            <span>🏆 本週高效訂正王(0次未訂正):</span>
+            <span class="text-[8px] text-gray-400 font-normal">※ 排除已進入左側之學生</span>
+          </div>
+          <div class="flex items-center gap-1" id="speedy-alltime-leaders"></div>
+        </div>
+      </div>
+
+      <!-- 第三欄 -->
+      <div class="bg-blue-50/80 border border-blue-200 p-3.5 rounded-xl shadow-xs flex flex-col justify-between min-h-[180px]">
+        <div>
+          <h3 class="text-xs font-black text-blue-800 flex justify-between items-center border-b border-blue-200 pb-1.5 mb-2">
+            <span>🏆 3. 今日最快完成前三組</span>
+            <span class="bg-blue-200 text-blue-900 text-[9px] px-1.5 py-0.2 rounded font-bold">今日競賽</span>
+          </h3>
+          <div class="max-h-[105px] overflow-y-auto flex flex-col gap-1.5" id="daily-fastest-groups-list"></div>
+        </div>
+        <div class="mt-2 pt-1.5 border-t border-blue-200/50 flex flex-col gap-1 text-[10px] text-blue-700 font-bold">
+          <div class="flex flex-wrap items-center gap-1" id="group-winner-badge-container">
+            <span>🏆 當週最優組別：計算中</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 📊 累積統計與四宮格 (100% 取消 5 次粉紅、10 次黑曜底色變色限制) -->
+    <section class="bg-white border border-slate-200 p-4 rounded-xl shadow-xs">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b pb-2.5 mb-3">
+        <div>
+          <h2 class="text-sm font-black text-slate-800 flex items-center gap-1.5">
+            📅 學生累積訂正統計格盤
+          </h2>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <label class="font-bold text-slate-500">選擇學年度：</label>
+          <select id="academic-year-select" class="p-1 border rounded bg-slate-50 font-semibold focus:outline-none text-xs">
+            <option value="115">115 學年度</option>
+            <option value="116">116 學年度</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="cumulative-dashboard-grid" class="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-10 gap-2 mb-4"></div>
+
+      <!-- 👥 本週小組累積排名 -->
+      <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-3">
+        <h3 class="text-xs font-black text-slate-700 flex justify-between items-center mb-2 flex-wrap gap-2">
+          <span>📊 本週小組累計排名：(週指 + 週未) / 活躍人數 × 4</span>
+          <div class="flex items-center gap-2">
+            <button onclick="triggerPasswordPrompt('clearWeekly')" class="bg-rose-600 hover:bg-rose-700 text-white text-[10px] py-1 px-2.5 rounded font-bold transition shadow-3xs shrink-0">
+              🧹 清空週排名成績
+            </button>
+            <span class="text-[9px] text-slate-400 shrink-0">分數越少越優秀！</span>
+          </div>
+        </h3>
+        <div class="grid grid-cols-2 sm:grid-cols-6 gap-2" id="weekly-group-ranking-list"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ⚙️ 教師控制台 (刪除了多餘的滑動大按鈕) -->
+  <footer class="max-w-7xl mx-auto mt-5 bg-slate-800 text-slate-100 p-4 md:p-5 rounded-xl shadow-lg border border-slate-700" id="teacher-panel-anchor">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-700 pb-3.5 mb-4">
+      <div class="flex items-center gap-3 flex-wrap">
+        <h2 class="text-sm md:text-base font-black text-white flex items-center gap-1.5">
+          ⚙️ 教師控制台
+        </h2>
+        <div id="lock-status-container">
+          <span id="lock-status" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-600 text-white">🔒 系統已鎖定</span>
+        </div>
+      </div>
+
+      <div id="teacher-action-buttons" class="hidden flex flex-wrap items-center gap-1.5">
+        <button onclick="loadMockDataJS()" class="bg-sky-600 hover:bg-sky-700 text-white text-[10px] py-1 px-2.5 rounded font-bold transition flex items-center gap-1 shadow-3xs">🧪 載入全班模擬預覽</button>
+        <button onclick="triggerPasswordPrompt('resetSystem')" class="bg-rose-600 hover:bg-rose-700 text-white text-[10px] py-1 px-2 rounded font-bold transition flex items-center gap-1 shadow-3xs">⚠️ 全系統數據重設歸零</button>
+        <button onclick="lockConsoleJS()" class="bg-red-600 hover:bg-red-700 text-white text-[10px] py-1 px-2 rounded font-bold transition shadow-3xs">重新鎖定 🔒</button>
+      </div>
+
+      <div id="auth-section" class="flex items-center gap-1.5 w-full md:w-auto">
+        <input type="password" id="teacher-password" placeholder="請輸入控制台密碼" class="px-2.5 py-1.5 text-xs border border-slate-600 rounded bg-slate-700 text-white focus:outline-none w-44">
+        <button onclick="unlockConsoleJS()" class="bg-teal-600 hover:bg-teal-500 text-white text-xs px-3 py-1.5 rounded font-bold transition shrink-0">驗證解鎖</button>
+      </div>
+    </div>
+
+    <!-- 管理操作區 (解鎖後顯示) -->
+    <div id="teacher-controls-body" class="opacity-20 pointer-events-none transition-all duration-300 flex flex-col gap-4">
+      
+      <!-- 安全報表下載區 (已移入教師控制台) -->
+      <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
+        <div>
+          <span class="font-bold text-teal-400">🔓 安全管理報表下載區</span>
+          <p class="text-[10px] text-slate-400 mt-0.5">※ 報表下載功能已安全存放至教師控制台內，僅限解鎖後下載：</p>
+        </div>
+        <div class="grid grid-cols-4 gap-1.5 sm:w-auto w-full">
+          <button onclick="triggerPasswordPrompt('export_weekly')" class="text-[10px] py-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold transition">週報表</button>
+          <button onclick="triggerPasswordPrompt('export_monthly')" class="text-[10px] py-1.5 px-3 bg-teal-600 hover:bg-teal-700 text-white rounded font-bold transition">月報表</button>
+          <button onclick="triggerPasswordPrompt('export_sem1')" class="text-[10px] py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold transition">上學期</button>
+          <button onclick="triggerPasswordPrompt('export_sem2')" class="text-[10px] py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold transition">下學期</button>
+        </div>
+      </div>
+
+      <!-- 指派新功課 -->
+      <div class="bg-slate-900/50 p-3.5 rounded-lg border border-slate-700">
+        <span class="block font-bold text-teal-400 mb-2">➕ 指派新訂正作業項目</span>
+        <div class="flex flex-col gap-3">
+          <div>
+            <span class="block text-[10px] text-slate-400 font-bold mb-1">步驟 1：選擇科目類別</span>
+            <div class="grid grid-cols-4 gap-2" id="subj-tab-container">
+              <!-- JS 動態渲染 -->
+            </div>
+          </div>
+          <div>
+            <span class="block text-[10px] text-slate-400 font-bold mb-1">步驟 2：點選常用功課：</span>
+            <div id="preset-chips" class="flex flex-wrap gap-1 p-2 bg-slate-900 rounded border border-slate-800 max-h-24 overflow-y-auto"></div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-800 p-2.5 rounded border border-slate-700">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400">功課細節 / 自打名稱：</label>
+              <input type="text" id="new-hw-item" placeholder="請點選常用選項或在此輸入" class="w-full px-2 py-1 bg-slate-900 border rounded text-white focus:outline-none">
+            </div>
+            <div class="flex items-center pl-1">
+              <label class="flex items-center gap-2 text-xs text-slate-300 font-bold select-none cursor-pointer">
+                <input type="checkbox" id="new-hw-pinned" class="w-4 h-4 rounded text-teal-600 bg-slate-900 border-slate-700">
+                📌 跨日保留 (此卡片一律在最上方最醒目展示，週結算或跨天不退場)
+              </label>
+            </div>
+          </div>
+          
+          <!-- 勾選指派座號 (全選與反選) -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <span class="block text-[10px] text-slate-400 font-bold">步驟 3：勾選指派座號：</span>
+              <div class="flex gap-1.5">
+                <button type="button" onclick="selectAllSeatsJS()" class="text-[10px] bg-teal-750 hover:bg-teal-700 text-white px-2.5 py-0.5 rounded font-black transition">全選</button>
+                <button type="button" onclick="invertSeatSelectionJS()" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-white px-2.5 py-0.5 rounded font-black transition">反選</button>
+              </div>
+            </div>
+            <div id="seat-picker-grid" class="grid grid-cols-6 sm:grid-cols-10 gap-1.5 p-2 bg-slate-900 rounded border border-slate-800 max-h-24 overflow-y-auto"></div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-slate-800 pt-3">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] text-slate-400 font-bold">班級座號總人數：</span>
+              <input type="number" id="class-size-input" class="w-14 px-1.5 py-1 text-xs bg-slate-900 border border-slate-700 rounded text-white text-center">
+              <button onclick="updateClassSizeJS()" class="bg-slate-700 hover:bg-slate-600 text-white text-[10px] px-2.5 py-1 rounded transition font-bold">套用</button>
+            </div>
+            <button onclick="publishHwJS()" class="bg-teal-600 hover:bg-teal-500 text-white text-xs px-5 py-2 rounded-lg font-bold shadow-md">🚀 發布訂正作業</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 已發布管理清單 -->
+      <div class="bg-slate-900/50 p-3.5 rounded-lg border border-slate-700">
+        <span class="block font-bold text-teal-400 mb-2">📋 已發布管理清單</span>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-800 text-slate-400">
+              <tr>
+                <th class="p-2">科目</th>
+                <th class="p-2">功課名稱</th>
+                <th class="p-2">屬性[點擊切換]</th>
+                <th class="p-2 text-center">待改/已改人數</th>
+                <th class="p-2 text-center">追加</th>
+                <th class="p-2 text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="admin-homework-table-body">
+              <!-- JS 動態生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 微調修正 -->
+      <div class="p-3.5 rounded-lg border border-blue-900 bg-[#1e3a8a]">
+        <span class="block font-bold text-blue-200 mb-2 border-b border-blue-800 pb-1">➖ 訂正次數快捷修正 (-1)</span>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-[9px] text-blue-300 font-bold mb-1">選擇座號：</label>
+            <select id="adjust-seat-select" class="w-full px-2 py-1 text-xs bg-blue-950 border border-blue-800 rounded text-white focus:outline-none"></select>
+          </div>
+          <div>
+            <label class="block text-[9px] text-blue-300 font-bold mb-1">選擇指標：</label>
+            <select id="adjust-metric-select" class="w-full px-2 py-1 text-xs bg-blue-950 border border-blue-800 rounded text-white focus:outline-none">
+              <option value="all">同步扣除日與週 (-1)</option>
+              <option value="daily">僅扣除日次數 (-1)</option>
+              <option value="weekly">僅扣除週次數 (-1)</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button onclick="executeManualDeductJS()" class="w-full hover:bg-blue-800 border border-blue-600 text-white text-[10px] py-1.5 px-2.5 rounded font-bold transition text-center bg-[#172554]">確認扣除 (-1)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 組別設定 -->
+      <div class="bg-slate-950 p-3.5 rounded-lg border border-slate-800">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 border-b border-slate-850 pb-2 mb-3">
+          <div class="flex flex-col">
+            <span class="text-xs font-black text-slate-200">👥 組別設定 (油漆桶分組)</span>
+            <span class="text-[9px] text-slate-400 mt-0.5">※ 點選組別油漆刷後，點擊右側學生座號進行著色分組。未分組座號不計入排名。</span>
+          </div>
+          <button onclick="triggerPasswordPrompt('regroup')" class="bg-sky-600 hover:bg-sky-500 text-white text-[10px] px-3.5 py-1.5 rounded-lg font-black shadow-sm transition hover:scale-105 active:scale-95">🔄 重新分組競賽開始</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+          <div class="md:col-span-4 bg-slate-900 p-2.5 rounded">
+            <span class="block text-[10px] text-slate-400 mb-1.5">1. 選擇組別刷：</span>
+            <div class="grid grid-cols-3 gap-1.5" id="group-paint-btns"></div>
+          </div>
+          <div class="md:col-span-8 bg-slate-900 p-2.5 rounded">
+            <span class="block text-[10px] text-slate-400 mb-1.5">2. 點擊座號進行分派：</span>
+            <div id="paint-grid" class="grid grid-cols-5 sm:grid-cols-10 gap-1.5"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- 統一自訂對話彈窗 -->
+  <div id="custom-prompt-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl max-w-sm w-full mx-4 p-5 shadow-2xl border border-gray-200">
+      <h3 class="text-sm font-black text-gray-800 mb-1.5 flex items-center gap-1.5" id="custom-prompt-title">❓ 標題</h3>
+      <p class="text-xs text-gray-600 mb-4 whitespace-pre-wrap leading-relaxed" id="custom-prompt-message">訊息</p>
+      <div id="custom-prompt-password-container" class="mb-3 hidden">
+        <label class="block text-[10px] font-bold text-red-600 mb-1">🔐 請輸入教師密碼：</label>
+        <input type="password" id="custom-prompt-password" class="w-full px-2 py-1.5 text-xs border border-red-300 rounded bg-slate-50 text-slate-800 focus:ring-1 focus:ring-red-300">
+      </div>
+      <div id="custom-prompt-text-container" class="mb-3 hidden">
+        <input type="text" id="custom-prompt-text" class="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded bg-slate-50 text-slate-800 focus:ring-1 focus:ring-teal-500">
+      </div>
+      <div class="flex justify-end gap-2 text-xs font-bold">
+        <button onclick="closeCustomPromptModal()" class="px-3.5 py-1.5 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded transition">取消</button>
+        <button id="custom-prompt-confirm-btn" class="px-3.5 py-1.5 text-white bg-teal-600 hover:bg-teal-700 rounded transition shadow-sm">確定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 統一自訂通知彈窗 -->
+  <div id="custom-notify-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl max-w-sm w-full mx-4 p-5 shadow-2xl border border-gray-200 text-center">
+      <div class="text-2xl mb-1">🔔</div>
+      <h3 class="text-sm font-black text-slate-800 mb-1.5" id="custom-notify-title">通知</h3>
+      <p class="text-xs text-slate-500 mb-4 whitespace-pre-wrap leading-relaxed" id="custom-notify-message">內容</p>
+      <button onclick="closeCustomNotifyModal()" class="px-5 py-1.5 bg-[#0D5C53] hover:bg-[#0D5C53]/90 text-white text-xs font-bold rounded-full transition shadow-md">好，我知道了 👌</button>
+    </div>
+  </div>
+
+  <!-- 恭喜完成彈窗 -->
+  <div id="celebrate-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-2xl max-w-sm w-full mx-4 p-6 text-center shadow-2xl border border-gray-150 relative overflow-hidden">
+      <div class="text-4xl mb-2 animate-bounce">😊🎉✨</div>
+      <h3 class="text-lg font-black text-emerald-600 mb-1.5" id="celebrate-title">恭喜座號</h3>
+      <p class="text-gray-600 text-xs mb-4">你已經消滅了今天所有的錯誤，繼續保持！</p>
+      <button onclick="document.getElementById('celebrate-modal').classList.add('hidden')" class="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-full transition shadow-md mt-2">太棒了，我會繼續努力！ 👍</button>
+    </div>
+  </div>
+
+  <script>
+    const SECRET_KEY = "0206";
+    const STORAGE_KEY = "訂正作業系統_STATE_v3.6_STABLE";
+    const SUBJECT_PRESETS = {
+      "國語": ["預習", "甲本", "乙本", "國重", "心智圖", "國習", "國卷", "國本"],
+      "數學": ["數本", "數習", "數練", "數卷"],
+      "社會": ["社卷", "社練", "社筆記"],
+      "其他": ["聯絡簿", "日記", "班書", "班書認證", "回條", "學習單"]
+    };
+
+    let isUnlocked = false;
+    let paintTool = 1; 
+    let hwSubjectInput = "國語";
+    let selectedSeats = [];
+
+    let state = {
+      classSize: 30,
+      activeHomework: [],
+      cumulative: {},
+      groups: {}
+    };
+
+    // 儲存狀態並更新
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAll();
+    }
+
+    let activePromptCallback = null;
+    function openCustomPromptModal(title, msg, type, defaultValue, callback) {
+      document.getElementById("custom-prompt-title").innerText = title;
+      document.getElementById("custom-prompt-message").innerText = msg;
+      
+      const pwdContainer = document.getElementById("custom-prompt-password-container");
+      const textContainer = document.getElementById("custom-prompt-text-container");
+      const pwdInput = document.getElementById("custom-prompt-password");
+      const textInput = document.getElementById("custom-prompt-text");
+
+      pwdContainer.classList.add("hidden");
+      textContainer.classList.add("hidden");
+      pwdInput.value = "";
+      textInput.value = "";
+
+      if (type === 'password') {
+        pwdContainer.classList.remove("hidden");
+      } else if (type === 'text') {
+        textContainer.classList.remove("hidden");
+        textInput.value = defaultValue || "";
+      }
+
+      activePromptCallback = callback;
+      document.getElementById("custom-prompt-modal").classList.remove("hidden");
+    }
+
+    function closeCustomPromptModal() {
+      document.getElementById("custom-prompt-modal").classList.add("hidden");
+      activePromptCallback = null;
+    }
+
+    document.getElementById("custom-prompt-confirm-btn").onclick = function() {
+      if (activePromptCallback) {
+        const pwdInput = document.getElementById("custom-prompt-password").value;
+        const textInput = document.getElementById("custom-prompt-text").value;
+        activePromptCallback({ pwdInput, textInput });
+      }
+      closeCustomPromptModal();
+    };
+
+    function showNotify(title, msg) {
+      document.getElementById("custom-notify-title").innerText = title;
+      document.getElementById("custom-notify-message").innerText = msg;
+      document.getElementById("custom-notify-modal").classList.remove("hidden");
+    }
+
+    function closeCustomNotifyModal() {
+      document.getElementById("custom-notify-modal").classList.add("hidden");
+    }
+
+    window.onload = function() {
+      const now = new Date();
+      document.getElementById("header-date").innerText = `📅 ${now.getMonth() + 1}/${now.getDate()}`;
+      
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          state = JSON.parse(saved);
+        } catch (e) {
+          initializeDefaults(30);
+        }
+      } else {
+        initializeDefaults(30);
+      }
+      
+      ensureStateIntegrity();
+      renderAll();
+    };
+
+    function initializeDefaults(size) {
+      state.classSize = size;
+      state.activeHomework = [];
+      state.cumulative = {};
+      state.groups = {};
+      for (let i = 1; i <= size; i++) {
+        state.cumulative[i] = { daily: 0, weekly: 0, monthly: 0, sem1: 0, sem2: 0, assignedWeekly: 0, assignedDaily: 0 };
+        state.groups[i] = { group: 0, excluded: false };
+      }
+      saveState();
+    }
+
+    function ensureStateIntegrity() {
+      const size = state.classSize || 30;
+      if (!state.cumulative) state.cumulative = {};
+      if (!state.groups) state.groups = {};
+      if (!state.activeHomework) state.activeHomework = [];
+
+      for (let i = 1; i <= size; i++) {
+        if (!state.cumulative[i]) {
+          state.cumulative[i] = { daily: 0, weekly: 0, monthly: 0, sem1: 0, sem2: 0, assignedWeekly: 0, assignedDaily: 0 };
+        }
+        if (typeof state.cumulative[i].assignedWeekly === 'undefined') state.cumulative[i].assignedWeekly = 0;
+        if (typeof state.cumulative[i].assignedDaily === 'undefined') state.cumulative[i].assignedDaily = 0;
+        if (!state.groups[i]) {
+          state.groups[i] = { group: 0, excluded: false };
+        }
+      }
+    }
+
+    // 解鎖後台
+    function unlockConsoleJS() {
+      const pwd = document.getElementById("teacher-password").value;
+      if (pwd === SECRET_KEY) {
+        isUnlocked = true;
+        document.getElementById("teacher-password").value = "";
+        showNotify("解鎖成功", "歡迎導師！控制台已成功解鎖。");
+        renderAll();
+      } else {
+        showNotify("驗證失敗", "教師解鎖密碼錯誤！");
+      }
+    }
+
+    function lockConsoleJS() {
+      isUnlocked = false;
+      showNotify("系統鎖定", "控制台已重新鎖定保護。");
+      renderAll();
+    }
+
+    function updateClassSizeJS() {
+      const inputVal = parseInt(document.getElementById("class-size-input").value, 10);
+      if (isNaN(inputVal) || inputVal < 1 || inputVal > 50) {
+        showNotify("人數限制", "請輸入合理的人數限制 (1-50人)");
+        return;
+      }
+      state.classSize = inputVal;
+      ensureStateIntegrity();
+      saveState();
+      showNotify("更新成功", `班級學生總人數已設定為 ${inputVal} 人。`);
+    }
+
+    function handleSeatClick(hwId, seatNum) {
+      const hw = state.activeHomework.find(h => h.id === hwId);
+      if (!hw) return;
+
+      if (hw.isPinned) {
+        const pendingList = (hw.studentPendingSeats || []).map(Number);
+        if (!pendingList.includes(Number(seatNum))) {
+          hw.studentPendingSeats = [...pendingList, Number(seatNum)].map(Number);
+          saveState();
+          // 已經完全取消了原本在第一階段點成藍色時的回報通知，直接安靜轉為藍色
+        } else {
+          if (isUnlocked) {
+            openCustomPromptModal("📌 跨日保留作業 - 消號確認", `確認學生【座號 ${seatNum}】已完成【${hw.item}】訂正並予以消號？`, 'confirm', null, (res) => {
+              executePinnedApprove(hwId, seatNum);
+            });
+          } else {
+            openCustomPromptModal("📌 跨日保留作業 - 需教師核准", `此為跨日保留作業，【座號 ${seatNum}】已呈交。請導師輸入密碼驗證核准消號：`, 'password', null, (res) => {
+              if (res.pwdInput === SECRET_KEY) {
+                executePinnedApprove(hwId, seatNum);
+              } else {
+                showNotify("驗證失敗", "密碼錯誤，消號中止！");
+              }
+            });
+          }
+        }
+      } else {
+        // 一般作業
+        openCustomPromptModal("完成訂正確認", `確定座號 ${seatNum} 已經完成了該項目的訂正嗎？`, 'confirm', null, (res) => {
+          executeRegularApprove(hwId, seatNum);
+        });
+      }
+    }
+
+    function executeRegularApprove(hwId, seatNum) {
+      const hw = state.activeHomework.find(h => h.id === hwId);
+      if (!hw) return;
+      
+      hw.completedSeats.push(Number(seatNum));
+      if (!hw.completedTimestamps) hw.completedTimestamps = {};
+      hw.completedTimestamps[seatNum] = new Date().toISOString();
+
+      if (state.cumulative[seatNum]) {
+        state.cumulative[seatNum].daily = Math.max(0, (state.cumulative[seatNum].daily || 0) - 1);
+      }
+      saveState();
+      checkAndCelebrate(seatNum);
+    }
+
+    function executePinnedApprove(hwId, seatNum) {
+      const hw = state.activeHomework.find(h => h.id === hwId);
+      if (!hw) return;
+
+      hw.studentPendingSeats = (hw.studentPendingSeats || []).map(Number).filter(s => s !== Number(seatNum));
+      hw.completedSeats.push(Number(seatNum));
+      if (!hw.completedTimestamps) hw.completedTimestamps = {};
+      hw.completedTimestamps[seatNum] = new Date().toISOString();
+
+      const todayStr = `${new Date().getMonth() + 1}/${new Date().getDate()}`;
+      if (state.cumulative[seatNum]) {
+        // 當天剛發布的跨日卡，點消扣減今日日未 (daily)
+        if (hw.dateStr === todayStr) {
+          state.cumulative[seatNum].daily = Math.max(0, (state.cumulative[seatNum].daily || 0) - 1);
+        } else {
+          // 歷史跨日卡片點消：直接扣減歷史週未 (weekly) 及月與學期累計，歷史銷帳！週指不扣除
+          state.cumulative[seatNum].weekly = Math.max(0, (state.cumulative[seatNum].weekly || 0) - 1);
+          state.cumulative[seatNum].monthly = Math.max(0, (state.cumulative[seatNum].monthly || 0) - 1);
+          state.cumulative[seatNum].sem1 = Math.max(0, (state.cumulative[seatNum].sem1 || 0) - 1);
+        }
+      }
+      saveState();
+      checkAndCelebrate(seatNum);
+    }
+
+    function checkAndCelebrate(seatNum) {
+      const todayStr = `${new Date().getMonth() + 1}/${new Date().getDate()}`;
+      const assignedToday = state.activeHomework.filter(hw => hw.dateStr === todayStr && hw.assignedSeats.map(Number).includes(Number(seatNum)));
+      const unfinishedToday = assignedToday.filter(hw => !hw.completedSeats.map(Number).includes(Number(seatNum)));
+      if (assignedToday.length > 0 && unfinishedToday.length === 0) {
+        document.getElementById("celebrate-title").innerText = `🎉 座號 ${seatNum} 全部訂正 OK 超棒！ 😊`;
+        document.getElementById("celebrate-modal").classList.remove("hidden");
+      }
+    }
+
+    // 發布功課
+    function publishHwJS() {
+      const itemInput = document.getElementById("new-hw-item").value.trim();
+      if (!itemInput) {
+        showNotify("功課內容", "請輸入功課項目名稱！");
+        return;
+      }
+      if (selectedSeats.length === 0) {
+        showNotify("指派錯誤", "請至少選擇一位需要指派訂正的座號！");
+        return;
+      }
+
+      const now = new Date();
+      const dateStr = `${now.getMonth() + 1}/${now.getDate()}`;
+      const timeStr = `${dateStr} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const isPinned = document.getElementById("new-hw-pinned").checked;
+
+      const newHw = {
+        id: "hw-" + Date.now(),
+        subject: hwSubjectInput,
+        item: itemInput,
+        dateStr,
+        time: timeStr,
+        isPinned,
+        assignedSeats: [...selectedSeats].map(Number),
+        completedSeats: [],
+        studentPendingSeats: [],
+        completedTimestamps: {}
+      };
+
+      selectedSeats.forEach(seat => {
+        if (state.cumulative[seat]) {
+          state.cumulative[seat].daily = (state.cumulative[seat].daily || 0) + 1;
+          state.cumulative[seat].assignedDaily = (state.cumulative[seat].assignedDaily || 0) + 1;
+          state.cumulative[seat].assignedWeekly = (state.cumulative[seat].assignedWeekly || 0) + 1;
+        }
+      });
+
+      state.activeHomework.push(newHw);
+      document.getElementById("new-hw-item").value = "";
+      selectedSeats = [];
+      saveState();
+      showNotify("發布成功", `成功發布作業：【${hwSubjectInput} - ${newHw.item}】！`);
+    }
+
+    function executeSaveToday() {
+      const todayStr = `${new Date().getMonth() + 1}/${new Date().getDate()}`;
+      const size = state.classSize || 30;
+
+      for (let i = 1; i <= size; i++) {
+        const unfinishedTodayCount = getStudentUnfinishedCount(i);
+
+        if (state.cumulative[i]) {
+          state.cumulative[i].weekly = (state.cumulative[i].weekly || 0) + unfinishedTodayCount;
+          state.cumulative[i].monthly = (state.cumulative[i].monthly || 0) + unfinishedTodayCount;
+          state.cumulative[i].sem1 = (state.cumulative[i].sem1 || 0) + unfinishedTodayCount;
+          state.cumulative[i].daily = 0; 
+          state.cumulative[i].assignedDaily = 0;
+        }
+      }
+
+      state.activeHomework = state.activeHomework.map(hw => {
+        if (hw.isPinned && hw.dateStr === todayStr) {
+          return { ...hw, dateStr: '歷史' };
+        }
+        return hw;
+      }).filter(hw => {
+        if (hw.isPinned) {
+          const uncompleted = hw.assignedSeats.map(Number).filter(s => !hw.completedSeats.map(Number).includes(s));
+          return uncompleted.length > 0;
+        }
+        return false;
+      });
+
+      saveState();
+    }
+
+    // 追加
+    function appendSeatsPrompt(hwId, hwItem) {
+      openCustomPromptModal("➕ 追加指派座號", `請輸入要【追加指派】到「${hwItem}」的學生座號：`, 'text', '', (res) => {
+        const matches = res.textInput.match(/\d+/g) || [];
+        const parsedSeats = matches.map(s => parseInt(s, 10)).filter(num => !isNaN(num) && num >= 1 && num <= state.classSize);
+        if (parsedSeats.length === 0) {
+          showNotify("輸入錯誤", "請輸入合法的學生座號！");
+          return;
+        }
+
+        const hw = state.activeHomework.find(h => h.id === hwId);
+        if (!hw) return;
+
+        const currentAssigned = (hw.assignedSeats || []).map(Number);
+        const seatsToAdd = parsedSeats.map(Number).filter(s => !currentAssigned.includes(s));
+
+        if (seatsToAdd.length === 0) {
+          showNotify("未有新增", "所輸入的座號皆已在該功課的指派名單中。");
+          return;
+        }
+
+        hw.assignedSeats = [...currentAssigned, ...seatsToAdd].map(Number);
+        seatsToAdd.forEach(seat => {
+          if (state.cumulative[seat]) {
+            state.cumulative[seat].daily = (state.cumulative[seat].daily || 0) + 1;
+            state.cumulative[seat].assignedDaily = (state.cumulative[seat].assignedDaily || 0) + 1;
+            state.cumulative[seat].assignedWeekly = (state.cumulative[seat].assignedWeekly || 0) + 1;
+          }
+        });
+
+        saveState();
+        showNotify("追加成功", `成功為「${hwItem}」追加了 ${seatsToAdd.length} 個座號！`);
+      });
+    }
+
+    function deleteHwPrompt(hwId, hwItem, dateStr, isPinned) {
+      openCustomPromptModal("🗑️ 刪除功課確認", `確認要完全刪除「${hwItem}」的作業公告卡片嗎？`, 'confirm', null, () => {
+        const hw = state.activeHomework.find(h => h.id === hwId);
+        if (hw) {
+          if (dateStr === "歷史" && isPinned) {
+            // 歷史不扣減
+          } else {
+            hw.assignedSeats.forEach(seat => {
+              const completed = hw.completedSeats || [];
+              if (!completed.map(Number).includes(Number(seat))) {
+                if (state.cumulative[seat]) {
+                  state.cumulative[seat].daily = Math.max(0, (state.cumulative[seat].daily || 0) - 1);
+                  state.cumulative[seat].assignedDaily = Math.max(0, (state.cumulative[seat].assignedDaily || 0) - 1);
+                  state.cumulative[seat].assignedWeekly = Math.max(0, (state.cumulative[seat].assignedWeekly || 0) - 1);
+                }
+              } else {
+                if (state.cumulative[seat]) {
+                  state.cumulative[seat].assignedDaily = Math.max(0, (state.cumulative[seat].assignedDaily || 0) - 1);
+                  state.cumulative[seat].assignedWeekly = Math.max(0, (state.cumulative[seat].assignedWeekly || 0) - 1);
+                }
+              }
+            });
+          }
+        }
+        state.activeHomework = state.activeHomework.filter(h => h.id !== hwId);
+        saveState();
+        showNotify("刪除成功", "公告已撤銷！");
+      });
+    }
+
+    function toggleHwPinnedJS(hwId) {
+      const hw = state.activeHomework.find(h => h.id === hwId);
+      if (hw) {
+        hw.isPinned = !hw.isPinned;
+        saveState();
+      }
+    }
+
+    function executeManualDeductJS() {
+      const seat = parseInt(document.getElementById("adjust-seat-select").value, 10);
+      const metric = document.getElementById("adjust-metric-select").value;
+      if (state.cumulative[seat]) {
+        if (metric === 'all' || metric === 'daily') {
+          state.cumulative[seat].daily = Math.max(0, (state.cumulative[seat].daily || 0) - 1);
+        }
+        if (metric === 'all' || metric === 'weekly') {
+          state.cumulative[seat].weekly = Math.max(0, (state.cumulative[seat].weekly || 0) - 1);
+          state.cumulative[seat].assignedWeekly = Math.max(0, (state.cumulative[seat].assignedWeekly || 0) - 1);
+        }
+        saveState();
+        showNotify("修正成功", `已成功將座號 ${seat} 訂正次數修正 -1！`);
+      }
+    }
+
+    function applyPaintToSeat(seatNum) {
+      if (!isUnlocked) return;
+      const currentConfig = state.groups[seatNum] || { group: 0, excluded: false };
+      
+      if (paintTool === 'exclude') {
+        currentConfig.excluded = !currentConfig.excluded;
+      } else {
+        currentConfig.group = parseInt(paintTool, 10) || 0;
+        currentConfig.excluded = false;
+      }
+
+      state.groups[seatNum] = currentConfig;
+      saveState();
+    }
+
+    function selectAllSeatsJS() {
+      selectedSeats = [];
+      for(let i=1; i<=state.classSize; i++) {
+        selectedSeats.push(i);
+      }
+      renderAll();
+    }
+
+    function invertSeatSelectionJS() {
+      const current = selectedSeats.map(Number);
+      selectedSeats = [];
+      for(let i=1; i<=state.classSize; i++) {
+        if (!current.includes(i)) {
+          selectedSeats.push(i);
+        }
+      }
+      renderAll();
+    }
+
+    function triggerPasswordPrompt(type) {
+      let promptTitle = "🔐 教師安全驗證";
+      let promptMsg = "請輸入教師密碼以進行此操作：";
+      if (type === 'clearWeekly') {
+        promptTitle = "🧹 清空週排名成績";
+        promptMsg = "確認要將本週學生的週指、週未成績全部重設嗎？請驗證密碼：";
+      } else if (type === 'resetSystem') {
+        promptTitle = "⚠️ 全系統數據重設歸零";
+        promptMsg = "🚨 注意：這會將本班所有作業、累積數據與分組名單一併徹底抹除！請驗證密碼：";
+      } else if (type === 'regroup') {
+        promptTitle = "🔄 重新分組競賽開始";
+        promptMsg = "確認要重新進行本週分組競賽，並重置週排名累積成績嗎？請驗證密碼：";
+      } else if (type === 'saveToday') {
+        promptTitle = "💾 儲存今日資料驗證";
+        promptMsg = "當老師按下儲存今日記錄：表示今天訂正正式結束。今日發布作業卡片消失，當日未完成的「日未次數」會精準累計合併至「週未次數」，日未數據歸零，週排名正式結算鎖定。請輸入教師密碼：";
+      } else if (type.startsWith('export_')) {
+        promptTitle = "📊 下載報表驗證";
+        promptMsg = "安全報表下載驗證：請輸入導師密碼解鎖：";
+      }
+
+      openCustomPromptModal(promptTitle, promptMsg, 'password', null, (res) => {
+        if (res.pwdInput === SECRET_KEY) {
+          if (type === 'clearWeekly') {
+            for (let i = 1; i <= state.classSize; i++) {
+              if (state.cumulative[i]) {
+                state.cumulative[i].weekly = 0;
+                state.cumulative[i].assignedWeekly = 0;
+                state.cumulative[i].daily = 0;
+                state.cumulative[i].assignedDaily = 0;
+              }
+            }
+            saveState();
+            showNotify("清空成功", "當週排名累積次數已成功清空歸零！");
+          } else if (type === 'saveToday') {
+            executeSaveToday();
+            showNotify("儲存成功", "今日指派欄位已關閉，日未數據已全數安全累計進當週週未並結算！");
+          } else if (type === 'resetSystem') {
+            initializeDefaults(state.classSize || 30);
+            isUnlocked = false;
+            showNotify("重設成功", "全系統所有統計與功課資料已完全歸零！");
+          } else if (type === 'regroup') {
+            for (let i = 1; i <= state.classSize; i++) {
+              if (state.cumulative[i]) {
+                state.cumulative[i].weekly = 0;
+                state.cumulative[i].assignedWeekly = 0;
+              }
+            }
+            saveState();
+            showNotify("重組成功", "本週分組與累積成績已重置！");
+          } else if (type.startsWith('export_')) {
+            const expType = type.replace('export_', '');
+            executeCSVDownload(expType);
+          }
+        } else {
+          showNotify("密碼錯誤", "教師密碼驗證失敗！");
+        }
+      });
+    }
+
+    function executeCSVDownload(type) {
+      let typeLabel = "";
+      let fieldKey = "";
+      switch (type) {
+        case "weekly": typeLabel = "週報表次數"; fieldKey = "weekly"; break;
+        case "monthly": typeLabel = "月報表次數"; fieldKey = "monthly"; break;
+        case "sem1": typeLabel = "上學期累計"; fieldKey = "sem1"; break;
+        case "sem2": typeLabel = "下學期累計"; fieldKey = "sem2"; break;
+      }
+
+      let csvContent = "\ufeff座號,目前組別,排除狀態,今日未訂正,本週未訂正,下載指標(" + typeLabel + ")\n";
+      for (let i = 1; i <= state.classSize; i++) {
+        const data = state.cumulative[i] || { daily: 0, weekly: 0, monthly: 0, sem1: 0, sem2: 0 };
+        const grp = state.groups[i] || { group: 0, excluded: false };
+        const grpStr = grp.excluded ? "已剔除" : `第 ${grp.group} 組`;
+        const unfinishedCount = getStudentUnfinishedCount(i);
+        csvContent += `${i},${grpStr},${grp.excluded ? '已剔除':'正常'},${unfinishedCount},${data.weekly},${data[fieldKey] || 0}\n`;
+      }
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `訂正作業系統_${typeLabel}_報表.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function getStudentUnfinishedCount(seatNum) {
+      let count = 0;
+      const todayStr = `${new Date().getMonth() + 1}/${new Date().getDate()}`;
+      state.activeHomework.forEach(hw => {
+        if (hw.dateStr === todayStr) {
+          if (hw.assignedSeats.map(Number).includes(Number(seatNum)) && !hw.completedSeats.map(Number).includes(Number(seatNum))) {
+            count++;
+          }
+        }
+      });
+      return count;
+    }
+
+    function loadMockDataJS() {
+      const size = state.classSize || 30;
+      const todayStr = `${new Date().getMonth() + 1}/${new Date().getDate()}`;
+      const mockHw = [
+        {
+          id: "hw-mock-1",
+          subject: "國語",
+          item: "國習 L10",
+          dateStr: todayStr,
+          time: "08:15",
+          isPinned: false,
+          assignedSeats: [3, 8, 12, 17, 24, 25, 26].filter(s => s <= size),
+          completedSeats: [25, 26].filter(s => s <= size),
+          studentPendingSeats: [12],
+          completedTimestamps: {}
+        },
+        {
+          id: "hw-mock-2",
+          subject: "數學",
+          item: "數習 P.88",
+          dateStr: todayStr,
+          time: "10:30",
+          isPinned: false,
+          assignedSeats: [2, 3, 11, 24].filter(s => s <= size),
+          completedSeats: [2],
+          studentPendingSeats: [],
+          completedTimestamps: {}
+        },
+        {
+          id: "hw-mock-3",
+          subject: "其他",
+          item: "歷史跨日作業",
+          dateStr: "歷史",
+          time: "11:20",
+          isPinned: true,
+          assignedSeats: [8, 12, 15, 28].filter(s => s <= size),
+          completedSeats: [],
+          studentPendingSeats: [15],
+          completedTimestamps: {}
+        }
+      ];
+
+      for (let i = 1; i <= size; i++) {
+        state.cumulative[i] = {
+          daily: 0,
+          weekly: Math.floor(Math.random() * 3),
+          monthly: Math.floor(Math.random() * 8) + 2,
+          sem1: Math.floor(Math.random() * 25) + 5,
+          sem2: 0,
+          assignedWeekly: Math.floor(Math.random() * 5) + 1,
+          assignedDaily: 0
+        };
+        state.groups[i] = { group: (i % 6) + 1, excluded: i === 12 || i === 25 };
+      }
+
+      mockHw.forEach(hw => {
+        if (hw.dateStr === todayStr) {
+          hw.assignedSeats.forEach(seat => {
+            if (!hw.completedSeats.includes(seat)) {
+              state.cumulative[seat].daily = (state.cumulative[seat].daily || 0) + 1;
+              state.cumulative[seat].assignedDaily = (state.cumulative[seat].assignedDaily || 0) + 1;
+            }
+          });
+        }
+      });
+
+      state.activeHomework = mockHw;
+      saveState();
+      showNotify("模擬成功", "已載入情境測試數據！");
+    }
+
+    function renderAll() {
+      const size = state.classSize || 30;
+      const todayStr = `${new Date().getMonth() + 1}/${new Date().getDate()}`;
+
+      // 導師控制台解鎖保護
+      if (isUnlocked) {
+        document.getElementById("lock-status-container").innerHTML = `
+          <button onclick="triggerPasswordPrompt('saveToday')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] py-1 px-2.5 rounded font-bold transition flex items-center gap-1 shadow-md">
+            💾 儲存今日記錄 (需驗證)
+          </button>
+        `;
+        document.getElementById("teacher-action-buttons").classList.remove("hidden");
+        document.getElementById("auth-section").classList.add("hidden");
+        document.getElementById("teacher-controls-body").style.opacity = "1";
+        document.getElementById("teacher-controls-body").style.pointerEvents = "auto";
+      } else {
+        document.getElementById("lock-status-container").innerHTML = `
+          <span id="lock-status" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-600 text-white">🔒 系統已鎖定</span>
+        `;
+        document.getElementById("teacher-action-buttons").classList.add("hidden");
+        document.getElementById("auth-section").classList.remove("hidden");
+        document.getElementById("teacher-controls-body").style.opacity = "0.2";
+        document.getElementById("teacher-controls-body").style.pointerEvents = "none";
+      }
+
+      // 📌 跨日保留作業一律居頂展示
+      const pinnedHws = state.activeHomework.filter(hw => hw.isPinned);
+      let pinHTML = "";
+      let hasPinnedActive = false;
+
+      pinnedHws.forEach(hw => {
+        const uncompleted = hw.assignedSeats.map(Number).filter(s => !hw.completedSeats.map(Number).includes(s));
+        if (uncompleted.length > 0) {
+          hasPinnedActive = true;
+          let seatBtnsHTML = "";
+          uncompleted.forEach(seat => {
+            const isPending = (hw.studentPendingSeats || []).map(Number).includes(Number(seat));
+            const btnColor = isPending 
+              ? "bg-blue-600 text-white border-blue-700 hover:bg-blue-700" 
+              : "bg-white text-rose-600 border-rose-300 hover:bg-yellow-100";
+            seatBtnsHTML += `
+              <button onclick="handleSeatClick('${hw.id}', ${seat})" class="px-2 py-0.5 text-[10px] rounded font-black shrink-0 transition-all border ${btnColor}">
+                ${seat}
+              </button>
+            `;
+          });
+
+          pinHTML += `
+            <div class="flex flex-wrap items-center gap-1.5 bg-purple-100 border border-purple-200 px-2.5 py-1.5 rounded-lg font-bold text-purple-950 text-xs shadow-3xs">
+              <span class="flex items-center gap-1">📌 ${hw.item} (${hw.dateStr})：</span>
+              <div class="flex flex-wrap items-center gap-1">${seatBtnsHTML}</div>
+            </div>
+          `;
+        }
+      });
+
+      const pinContainer = document.getElementById("pinned-section-container");
+      if (hasPinnedActive) {
+        pinContainer.style.display = "block";
+        document.getElementById("pinned-homework-row").innerHTML = pinHTML;
+      } else {
+        pinContainer.style.display = "none";
+      }
+
+      // 今日一般功課大卡片
+      const regularHws = state.activeHomework.filter(hw => hw.dateStr === todayStr && !hw.isPinned);
+      const hwContainer = document.getElementById("homework-list");
+      if (regularHws.length === 0) {
+        hwContainer.innerHTML = `
+          <div class="col-span-full py-8 text-center text-xs text-gray-500 bg-white rounded-xl border border-dashed border-gray-300 shadow-3xs">
+            目前無發布中的訂正卡片。請老師解鎖控制台指派項目！🎉
+          </div>
+        `;
+      } else {
+        let hwCardsHTML = "";
+        regularHws.forEach(hw => {
+          const uncompleted = hw.assignedSeats.map(Number).filter(s => !hw.completedSeats.map(Number).includes(s));
+          const isFinished = uncompleted.length === 0;
+
+          let colClass = "grid-cols-4 gap-1.5";
+          let btnSizeClass = "text-xs py-1.5 font-bold";
+          let btnWrapClass = "w-full";
+
+          if (!isFinished) {
+            if (uncompleted.length === 3) {
+              colClass = "grid-cols-3 gap-2";
+            } else if (uncompleted.length === 2) {
+              colClass = "grid-cols-2 gap-2.5 max-w-[140px] mx-auto";
+            } else if (uncompleted.length === 1) {
+              colClass = "grid-cols-1 max-w-[100px] mx-auto";
+              btnSizeClass = "text-xs py-2 font-bold border-rose-200 text-rose-700 bg-rose-50/70 shadow-3xs";
+            }
+          }
+
+          let cardClass = "";
+          let cardHeaderClass = "";
+          if (hw.subject === "國語") { cardClass = "border-[#0284C7] bg-[#F0F9FF]"; cardHeaderClass = "bg-[#0284C7] text-white"; }
+          else if (hw.subject === "數學") { cardClass = "border-[#BE123C] bg-[#FFF1F2]"; cardHeaderClass = "bg-[#BE123C] text-white"; }
+          else if (hw.subject === "社會") { cardClass = "border-[#0D9488] bg-[#F0FDFA]"; cardHeaderClass = "bg-[#0D9488] text-white"; }
+          else { cardClass = "border-[#6D28D9] bg-[#FAF5FF]"; cardHeaderClass = "bg-[#6D28D9] text-white"; }
+
+          let seatBtns = "";
+          uncompleted.forEach(seat => {
+            const isPending = (hw.studentPendingSeats || []).map(Number).includes(Number(seat));
+            const pendingBtnStyle = isPending 
+              ? "bg-blue-600 text-white border-blue-700" 
+              : "bg-white text-slate-800 border-slate-300";
+
+            seatBtns += `
+              <button onclick="handleSeatClick('${hw.id}', ${seat})" class="seat-btn ${btnSizeClass} ${pendingBtnStyle} border rounded font-black text-center shadow-3xs transition-all">
+                ${seat}
+              </button>
+            `;
+          });
+
+          hwCardsHTML += `
+            <div class="rounded-xl border shadow-sm ${cardClass} flex flex-col justify-between overflow-hidden relative transition-all duration-300">
+              <div>
+                <div class="p-3 ${cardHeaderClass} flex justify-between items-center">
+                  <h3 class="text-sm font-black truncate max-w-[170px]" title="${hw.item}">${hw.item}</h3>
+                  <span class="text-[10px] font-bold font-mono bg-black/20 px-2 py-0.5 rounded shrink-0">🕒 ${hw.time}</span>
+                </div>
+                <div class="p-3 min-h-[130px] h-auto flex items-center justify-center transition-all duration-300">
+                  ${isFinished ? `
+                    <div class="text-center py-2 select-none flex flex-col items-center justify-center h-[90px]">
+                      <div class="text-3xl">😊</div>
+                      <div class="text-xs font-black text-emerald-600 mt-1">全部訂正完畢</div>
+                    </div>
+                  ` : `
+                    <div class="grid ${colClass} ${btnWrapClass} transition-all duration-300">${seatBtns}</div>
+                  `}
+                </div>
+              </div>
+              <div class="p-3 pt-0 flex justify-between items-center text-[10px] text-slate-400 font-bold border-t border-slate-100/50">
+                ${isFinished ? `<span></span>` : `<span>待訂正人數: <strong class="text-red-500">${uncompleted.length}</strong> 人</span>`}
+              </div>
+            </div>
+          `;
+        });
+        hwContainer.innerHTML = hwCardsHTML;
+      }
+
+      // 統計數據
+      const assignedCountsToday = {};
+      for (let i = 1; i <= size; i++) assignedCountsToday[i] = 0;
+      
+      state.activeHomework.forEach(hw => {
+        if (hw.dateStr === todayStr) {
+          hw.assignedSeats.forEach(seat => { assignedCountsToday[seat] = (assignedCountsToday[seat] || 0) + 1; });
+        }
+      });
+
+      const zeroCorrectionSeats = [];
+      const completedList = [];
+      const hasTodayHwLocal = state.activeHomework.filter(hw => hw.dateStr === todayStr && !hw.isPinned).length > 0;
+
+      if (hasTodayHwLocal) {
+        for (let i = 1; i <= size; i++) {
+          if (assignedCountsToday[i] === 0) zeroCorrectionSeats.push(i);
+        }
+      }
+
+      for (let i = 1; i <= size; i++) {
+        const totalAssigned = assignedCountsToday[i] || 0;
+        const unfinished = getStudentUnfinishedCount(i);
+        if (totalAssigned > 0 && unfinished === 0) {
+          let maxTime = 0;
+          state.activeHomework.forEach(hw => {
+            if (hw.dateStr === todayStr && hw.assignedSeats.map(Number).includes(i)) {
+              const timestamps = hw.completedTimestamps || {};
+              if (timestamps[i]) {
+                const ms = new Date(timestamps[i]).getTime();
+                if (ms > maxTime) maxTime = ms;
+              }
+            }
+          });
+          completedList.push({ seat: i, totalAssigned, lastCompletedTime: maxTime || Date.now() });
+        }
+      }
+
+      const sortedCompletedToday = [...completedList].sort((a, b) => a.lastCompletedTime - b.lastCompletedTime);
+      const sortedCompletedTodayLeastFirst = [...completedList].sort((a, b) => {
+        if (a.totalAssigned !== b.totalAssigned) return a.totalAssigned - b.totalAssigned;
+        return a.lastCompletedTime - b.lastCompletedTime;
+      });
+
+      // 第一欄
+      const perfectDiv = document.getElementById("daily-perfect-students");
+      if (!hasTodayHwLocal) {
+        document.getElementById("diligent-header-text").innerText = "👑 1. 今日0訂正座號:(作業用心，不用訂正，超棒!)";
+        document.getElementById("diligent-count-badge").innerText = "0 人";
+        perfectDiv.innerHTML = `<span class="text-[11px] text-gray-400 italic py-1">(今日尚未指派任何項目)</span>`;
+      } else if (zeroCorrectionSeats.length > 0) {
+        document.getElementById("diligent-header-text").innerText = "👑 1. 今日0訂正座號:(作業用心，不用訂正，超棒!)";
+        document.getElementById("diligent-count-badge").innerText = `${zeroCorrectionSeats.length} 人`;
+        perfectDiv.innerHTML = zeroCorrectionSeats.map(seat => `
+          <span class="bg-emerald-100 text-emerald-800 font-black text-[11px] px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">${seat} 號</span>
+        `).join("");
+      } else {
+        document.getElementById("diligent-header-text").innerText = "👑 1. 今日完成訂正且指派最少座號";
+        document.getElementById("diligent-count-badge").innerText = `${sortedCompletedTodayLeastFirst.length} 人`;
+        perfectDiv.innerHTML = sortedCompletedTodayLeastFirst.map(student => `
+          <span class="bg-amber-100 text-amber-800 font-black text-[11px] px-2 py-0.5 rounded-full border border-amber-200 shrink-0">${student.seat} 號 (${student.totalAssigned}項)</span>
+        `).join("");
+      }
+
+      // 第一欄下方：週訂正最少
+      let listA = [];
+      let listAMessage = "";
+      if (hasTodayHwLocal && zeroCorrectionSeats.length > 0) {
+        if (zeroCorrectionSeats.length > 5) {
+          listAMessage = "人數多於 5 人，暫不顯示";
+        } else {
+          listA = [...zeroCorrectionSeats];
+        }
+      } else {
+        const eligibleWeeklyLeast = [];
+        for (let i = 1; i <= size; i++) {
+          const unfinishedToday = getStudentUnfinishedCount(i);
+          const weeklyUncorrected = (state.cumulative[i] && state.cumulative[i].weekly) || 0;
+          const assignedWeekly = (state.cumulative[i] && state.cumulative[i].assignedWeekly) || 0;
+          if (unfinishedToday === 0 && weeklyUncorrected === 0 && assignedWeekly > 0) {
+            eligibleWeeklyLeast.push({ seat: i, assignedWeekly });
+          }
+        }
+        eligibleWeeklyLeast.sort((a, b) => b.assignedWeekly - a.assignedWeekly);
+        listA = eligibleWeeklyLeast.slice(0, 5).map(item => item.seat);
+      }
+
+      const leadersDiv = document.getElementById("diligent-alltime-leaders");
+      if (listAMessage) {
+        leadersDiv.innerHTML = `<span class="text-[10px] text-slate-400 italic font-bold">${listAMessage}</span>`;
+      } else if (listA.length > 0) {
+        leadersDiv.innerHTML = listA.map(seat => `
+          <div class="flex-1 text-center bg-white p-1 rounded border border-emerald-200 text-[10px] font-bold shadow-3xs text-emerald-700">${seat}號</div>
+        `).join("");
+      } else {
+        leadersDiv.innerHTML = `<span class="text-[10px] text-emerald-600/70 italic py-1">目前從缺</span>`;
+      }
+
+      // 第二欄
+      const speedyDiv = document.getElementById("daily-speedy-students");
+      if (sortedCompletedToday.length > 0) {
+        speedyDiv.innerHTML = sortedCompletedToday.slice(0, 5).map(student => `
+          <div class="bg-white p-1.5 px-3 rounded-lg border border-amber-200 flex flex-col items-center justify-center shadow-3xs font-black text-amber-700 text-sm">${student.seat} 號</div>
+        `).join("");
+      } else {
+        speedyDiv.innerHTML = `<span class="text-[11px] text-amber-600/70 italic py-1">等待同學完成今日訂正挑戰...⏳</span>`;
+      }
+
+      const speedyLeadersDiv = document.getElementById("speedy-alltime-leaders");
+      const eligibleSpeedy = [];
+      for (let i = 1; i <= size; i++) {
+        const unfinishedToday = getStudentUnfinishedCount(i);
+        const weeklyUncorrected = (state.cumulative[i] && state.cumulative[i].weekly) || 0;
+        const assignedWeekly = (state.cumulative[i] && state.cumulative[i].assignedWeekly) || 0;
+        if (unfinishedToday === 0 && weeklyUncorrected === 0 && assignedWeekly > 0 && !listA.map(Number).includes(i)) {
+          eligibleSpeedy.push(i);
+        }
+      }
+      if (eligibleSpeedy.length > 0) {
+        speedyLeadersDiv.innerHTML = eligibleSpeedy.slice(0, 5).map(seat => `
+          <div class="flex-1 text-center bg-white p-1 rounded border border-slate-200 text-[10px] font-bold shadow-3xs text-emerald-700">${seat}號</div>
+        `).join("");
+      } else {
+        speedyLeadersDiv.innerHTML = `<span class="text-[10px] text-slate-400 italic py-1">目前從缺</span>`;
+      }
+
+      // 第三欄
+      const groupUnfinished = {};
+      for (let g = 1; g <= 6; g++) groupUnfinished[g] = { totalAssigned: 0, unfinished: 0, times: [] };
+      for (let i = 1; i <= size; i++) {
+        const grp = state.groups[i] || { group: 0, excluded: false };
+        if (grp.group >= 1 && grp.group <= 6) {
+          const totalAssigned = assignedCountsToday[i] || 0;
+          const unfinished = getStudentUnfinishedCount(i);
+          groupUnfinished[grp.group].totalAssigned += totalAssigned;
+          groupUnfinished[grp.group].unfinished += unfinished;
+
+          if (totalAssigned > 0 && unfinished === 0) {
+            let maxTime = 0;
+            state.activeHomework.forEach(hw => {
+              if (hw.dateStr === todayStr && hw.assignedSeats.map(Number).includes(i)) {
+                const timestamps = hw.completedTimestamps || {};
+                if (timestamps[i]) {
+                  const ms = new Date(timestamps[i]).getTime();
+                  if (ms > maxTime) maxTime = ms;
+                }
+              }
+            });
+            if (maxTime > 0) groupUnfinished[grp.group].times.push(maxTime);
+          }
+        }
+      }
+
+      const groupFastestList = [];
+      for (let g = 1; g <= 6; g++) {
+        const info = groupUnfinished[g];
+        if (info.totalAssigned > 0 && info.unfinished === 0) {
+          const completionTime = info.times.length > 0 ? Math.max(...info.times) : Date.now();
+          groupFastestList.push({ group: g, completionTime });
+        }
+      }
+      groupFastestList.sort((a, b) => a.completionTime - b.completionTime);
+
+      const fastestGroupsList = document.getElementById("daily-fastest-groups-list");
+      if (groupFastestList.length > 0) {
+        fastestGroupsList.innerHTML = groupFastestList.slice(0, 3).map((item, index) => {
+          let medal = index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉";
+          return `
+            <div class="bg-white p-2 px-3 rounded border border-blue-150 flex items-center justify-between text-xs font-black shadow-3xs text-blue-800">
+              <span>${medal} 第 ${item.group} 組</span>
+              <span class="text-[10px] text-emerald-600 font-bold">全組完消</span>
+            </div>
+          `;
+        }).join("");
+      } else {
+        fastestGroupsList.innerHTML = `<span class="text-[11px] text-blue-600/70 py-1 italic text-center">等待各組完成今日訂正挑戰...⏳</span>`;
+      }
+
+      // 小組加權分數 (修正計算：(週指 + 週未) / 活躍人數 * 4)
+      const groupWeeklyScores = {};
+      const groupSeats = {};
+      for (let g = 1; g <= 6; g++) {
+        groupWeeklyScores[g] = { totalWeeklyAssigned: 0, totalWeeklyUncompleted: 0, activeMembers: 0 };
+        groupSeats[g] = [];
+      }
+
+      for (let i = 1; i <= size; i++) {
+        const grp = state.groups[i] || { group: 0, excluded: false };
+        if (grp.group >= 1 && grp.group <= 6) {
+          if (!grp.excluded) {
+            const weeklyAssigned = (state.cumulative[i] && state.cumulative[i].assignedWeekly) || 0;
+            const currentUnfinished = getStudentUnfinishedCount(i);
+            const weeklyUncompleted = ((state.cumulative[i] && state.cumulative[i].weekly) || 0) + currentUnfinished;
+            groupWeeklyScores[grp.group].totalWeeklyAssigned += weeklyAssigned;
+            groupWeeklyScores[grp.group].totalWeeklyUncompleted += weeklyUncompleted;
+            groupWeeklyScores[grp.group].activeMembers += 1;
+            groupSeats[grp.group].push(i);
+          }
+        }
+      }
+
+      const groupRankingsList = [];
+      for (let g = 1; g <= 6; g++) {
+        const info = groupWeeklyScores[g];
+        const score = info.activeMembers > 0 
+          ? ((info.totalWeeklyAssigned + info.totalWeeklyUncompleted) / info.activeMembers) * 4 
+          : 0;
+        groupRankingsList.push({ group: g, score, members: info.activeMembers, weeklyAssigned: info.totalWeeklyAssigned, weeklyHist: info.totalWeeklyUncompleted });
+      }
+
+      const sortedGroupScores = [...groupRankingsList].sort((a, b) => {
+        if (a.score === b.score) return a.group - b.group;
+        return a.score - b.score;
+      });
+
+      const groupWinnerContainer = document.getElementById("group-winner-badge-container");
+      if (sortedGroupScores.filter(g => g.members > 0).length > 0) {
+        const activeWinners = sortedGroupScores.filter(g => g.members > 0).slice(0, 3);
+        let winnersHTML = `<span class="mr-1 shrink-0">🏆 當週最優組別：</span>`;
+        activeWinners.forEach((g, idx) => {
+          let medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉";
+          winnersHTML += `<span class="bg-blue-100 text-blue-900 px-2 py-0.5 rounded-full text-[10px] font-black flex items-center">${medal}第 ${g.group}組</span>`;
+        });
+        groupWinnerContainer.innerHTML = winnersHTML;
+      } else {
+        groupWinnerContainer.innerHTML = `<span>🏆 當週最優組別：計算中</span>`;
+      }
+
+      // 下方排名 (徹底消除動畫閃爍，靜態高亮呈現)
+      const groupRankingListContainer = document.getElementById("weekly-group-ranking-list");
+      groupRankingListContainer.innerHTML = sortedGroupScores.map((item, index) => {
+        let medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "🎖️";
+        
+        let cardBg = "bg-white border-slate-200";
+        if (index === 0) cardBg = "bg-[#ECFDF5] border-emerald-300 text-emerald-950";
+
+        const scoreText = (typeof item.score === 'number' && !isNaN(item.score) && item.members > 0) ? `( ${item.score.toFixed(1)} ) 次` : `( 0.0 ) 次`;
+        const seatText = (groupSeats && Array.isArray(groupSeats[item.group]) && groupSeats[item.group].length > 0) ? groupSeats[item.group].join(",") : '無';
+
+        return `
+          <div class="border rounded-lg p-1.5 text-center transition shadow-3xs ${cardBg}">
+            <div class="font-extrabold flex items-center justify-center gap-0.5 text-xs">
+              <span>${medal}</span>
+              <span>第 ${item.group} 組</span>
+            </div>
+            <div class="text-xs font-black text-blue-700 bg-blue-100/60 py-1 rounded-md mt-2">
+              ${scoreText}
+            </div>
+            <div class="text-[9px] text-slate-400 mt-1 font-bold">
+              週指:${item.weeklyAssigned}次 / 週未:${item.weeklyHist}次
+            </div>
+            <div class="text-[8px] text-slate-400 font-semibold mt-1.5 leading-tight break-all border-t border-slate-100 pt-1">
+              座號: ${seatText}
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      // 累積統計四宮格
+      const cumulativeGrid = document.getElementById("cumulative-dashboard-grid");
+      let gridHTML = "";
+      for (let i = 1; i <= size; i++) {
+        const data = state.cumulative[i] || { daily: 0, weekly: 0, assignedDaily: 0, assignedWeekly: 0 };
+        const grp = state.groups[i] || { group: 0, excluded: false };
+
+        let headerColorClass = "bg-slate-100 text-slate-700 border-b border-slate-200"; 
+        let cardBgClass = "border-slate-200 bg-white hover:border-slate-300";
+
+        if (grp.excluded) {
+          headerColorClass = "bg-slate-200 text-slate-500 border-b border-slate-300";
+          cardBgClass = "border-slate-200 bg-slate-50";
+        }
+
+        const dynamicWeeklyTotal = (data.weekly || 0) + getStudentUnfinishedCount(i);
+
+        gridHTML += `
+          <div onclick="handleCumulativeSeatClick(${i})" class="border rounded-xl flex flex-col justify-between overflow-hidden text-center transition shadow-3xs hover:scale-105 cursor-pointer ${cardBgClass}">
+            <div class="text-xs font-black py-1 tracking-wider ${headerColorClass}">
+              ${i} 號
+            </div>
+            <div class="grid grid-cols-2 divide-x divide-y divide-slate-100 bg-white/40 text-[9px] font-semibold">
+              <div class="p-1 flex flex-col items-center justify-center">
+                <span class="text-[8px] text-slate-400 scale-90">日指</span>
+                <span class="font-mono text-slate-700">${assignedCountsToday[i] || 0}</span>
+              </div>
+              <div class="p-1 flex flex-col items-center justify-center bg-emerald-50/20">
+                <span class="text-[8px] text-emerald-600 scale-90">日未</span>
+                <span class="font-mono text-emerald-600 font-extrabold">${getStudentUnfinishedCount(i)}</span>
+              </div>
+              <div class="p-1 flex flex-col items-center justify-center">
+                <span class="text-[8px] text-slate-400 scale-90">週指</span>
+                <span class="font-mono text-slate-700">${data.assignedWeekly || 0}</span>
+              </div>
+              <div class="p-1 flex flex-col items-center justify-center bg-blue-50/20">
+                <span class="text-[8px] text-blue-600 scale-90">週未</span>
+                <span class="font-mono text-blue-600 font-extrabold">${dynamicWeeklyTotal}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      cumulativeGrid.innerHTML = gridHTML;
+
+      document.getElementById("class-size-input").value = size;
+
+      const subjContainer = document.getElementById("subj-tab-container");
+      subjContainer.innerHTML = ["國語", "數學", "社會", "其他"].map(subj => `
+        <button onclick="changeSubjectJS('${subj}')" class="p-2 rounded-lg font-bold text-xs border text-center transition ${
+          hwSubjectInput === subj ? 'bg-teal-600 text-white border-teal-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+        }">${subj}</button>
+      `).join("");
+
+      const chipsContainer = document.getElementById("preset-chips");
+      chipsContainer.innerHTML = (SUBJECT_PRESETS[hwSubjectInput] || []).map(preset => `
+        <button onclick="setHwItemJS('${preset}')" class="text-[10px] bg-slate-800 border border-slate-700 hover:border-teal-500 hover:bg-teal-950/40 text-slate-300 px-2 py-1 rounded transition-all font-semibold">${preset}</button>
+      `).join("");
+
+      const seatPicker = document.getElementById("seat-picker-grid");
+      let pickerHTML = "";
+      for (let i = 1; i <= size; i++) {
+        const isChecked = selectedSeats.map(Number).includes(i);
+        pickerHTML += `
+          <label class="flex items-center gap-1.5 bg-slate-800 p-1 px-2 rounded border border-slate-700 cursor-pointer hover:bg-slate-700 select-none text-[10px] text-slate-300">
+            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleSeatSelectionJS(${i})" class="rounded text-teal-600 bg-slate-900 border-slate-700 focus:ring-teal-500 scale-90">
+            <span>${i} 號</span>
+          </label>
+        `;
+      }
+      seatPicker.innerHTML = pickerHTML;
+
+      const adminTableBody = document.getElementById("admin-homework-table-body");
+      if (state.activeHomework.length === 0) {
+        adminTableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500 italic">目前無指派作業</td></tr>`;
+      } else {
+        adminTableBody.innerHTML = state.activeHomework.map(hw => {
+          const uncompletedCount = hw.assignedSeats.map(Number).filter(s => !hw.completedSeats.map(Number).includes(s)).length;
+          return `
+            <tr class="border-b border-slate-800 hover:bg-slate-800/40">
+              <td class="p-2 font-bold text-slate-300">${hw.subject}</td>
+              <td class="p-2 font-black text-white">${hw.item}</td>
+              <td class="p-2">
+                <button onclick="toggleHwPinnedJS('${hw.id}')" class="px-2 py-0.5 rounded text-[10px] font-bold ${hw.isPinned ? 'bg-amber-500 text-slate-900':'bg-slate-700 text-slate-300'}">
+                  ${hw.isPinned ? '📌 跨日保留' : '⏳ 一般當天'} ⇄
+                </button>
+              </td>
+              <td class="p-2 text-center text-teal-400 font-bold">${uncompletedCount} / ${hw.assignedSeats.length}人</td>
+              <td class="p-2 text-center">
+                <button onclick="appendSeatsPrompt('${hw.id}', '${hw.item}')" class="bg-teal-600 hover:bg-teal-500 text-white px-2 py-0.5 rounded text-[10px] font-bold transition">➕ 追加</button>
+              </td>
+              <td class="p-2 text-center">
+                <button onclick="deleteHwPrompt('${hw.id}', '${hw.item}', '${hw.dateStr}', ${hw.isPinned})" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 px-2 py-0.5 rounded text-[10px] font-bold transition">刪除 🗑️</button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      const adjustSeatSelect = document.getElementById("adjust-seat-select");
+      let selectHTML = "";
+      for (let i = 1; i <= size; i++) {
+        selectHTML += `<option value="${i}">${i} 號</option>`;
+      }
+      adjustSeatSelect.innerHTML = selectHTML;
+
+      const paintToolBtns = document.getElementById("group-paint-btns");
+      paintToolBtns.innerHTML = [1, 2, 3, 4, 5, 6].map(num => `
+        <button onclick="changePaintToolJS(${num})" class="paint-tool-btn text-xs py-1 px-2 rounded font-bold border ${
+          paintTool === num ? 'border-teal-500 bg-teal-900 text-teal-100 shadow-sm':'border-slate-700 bg-slate-800 text-slate-400'
+        }">第 ${num} 組</button>
+      `).join("") + `
+        <button onclick="changePaintToolJS('exclude')" class="paint-tool-btn col-span-3 text-xs py-1 px-2 rounded font-bold border ${
+          paintTool === 'exclude' ? 'border-rose-500 bg-rose-900 text-rose-100 shadow-sm':'border-rose-500/30 bg-rose-950/20 text-rose-300'
+        }">🚫 排除競賽</button>
+      `;
+
+      const paintGrid = document.getElementById("paint-grid");
+      let paintGridHTML = "";
+      const groupColors = {
+        0: "bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-900", 
+        1: "bg-red-900/30 text-red-300 border-red-800/60 hover:bg-red-800/40",
+        2: "bg-orange-900/30 text-orange-300 border-orange-800/60 hover:bg-orange-800/40",
+        3: "bg-yellow-900/30 text-yellow-300 border-yellow-800/60 hover:bg-yellow-800/40",
+        4: "bg-emerald-900/30 text-emerald-300 border-emerald-800/60 hover:bg-emerald-800/40",
+        5: "bg-blue-900/30 text-blue-300 border-blue-800/60 hover:bg-blue-800/40",
+        6: "bg-purple-900/30 text-purple-300 border-purple-800/60 hover:bg-purple-800/40"
+      };
+
+      for (let i = 1; i <= size; i++) {
+        const grp = state.groups[i] || { group: 0, excluded: false };
+        let colorClass = groupColors[grp.group] || "bg-slate-950 text-slate-400 border-slate-850";
+        let displayStr = grp.group === 0 ? `${i} 號 (未)` : `${i} 號 (G${grp.group})`;
+
+        if (grp.excluded) {
+          colorClass = "bg-slate-950 text-slate-600 border-slate-900 line-through hover:bg-slate-900";
+          displayStr = `${i} 號 (🚫)`;
+        }
+
+        paintGridHTML += `
+          <button type="button" onclick="applyPaintToSeat(${i})" class="text-[10px] font-bold p-1 px-1.5 text-center rounded border transition-all ${colorClass}">
+            ${displayStr}
+          </button>
+        `;
+      }
+      paintGrid.innerHTML = paintGridHTML;
+    }
+
+    function changeSubjectJS(subj) {
+      hwSubjectInput = subj;
+      renderAll();
+    }
+    function setHwItemJS(preset) {
+      document.getElementById("new-hw-item").value = preset;
+    }
+    function toggleSeatSelectionJS(seat) {
+      if (selectedSeats.map(Number).includes(Number(seat))) {
+        selectedSeats = selectedSeats.map(Number).filter(s => s !== Number(seat));
+      } else {
+        selectedSeats.push(Number(seat));
+      }
+      renderAll();
+    }
+    function changePaintToolJS(tool) {
+      paintTool = tool;
+      renderAll();
+    }
+    function handleCumulativeSeatClick(seatNum) {
+      if (!isUnlocked) return;
+      openCustomPromptModal("次數微調修正 (-1次)", `確定要為座號 ${seatNum} 號扣除訂正次數嗎？`, 'confirm', null, () => {
+        if (state.cumulative[seatNum]) {
+          state.cumulative[seatNum].daily = Math.max(0, (state.cumulative[seatNum].daily || 0) - 1);
+          state.cumulative[seatNum].weekly = Math.max(0, (state.cumulative[seatNum].weekly || 0) - 1);
+          saveState();
+          showNotify("修正成功", `已成功將座號 ${seatNum} 訂正次數修正 -1！`);
+        }
+      });
+    }
+  </script>
+</body>
+</html>
