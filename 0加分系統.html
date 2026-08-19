@@ -1,0 +1,2507 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>班級常規與雙點數管理系統</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 圖示庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.prod.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        [v-cloak] { display: none !important; }
+
+        /* 扭蛋機球體滾動動畫 */
+        @keyframes ballRoll1 {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(-30px, -45px) rotate(120deg); }
+            50% { transform: translate(25px, -60px) rotate(240deg); }
+            75% { transform: translate(-15px, -20px) rotate(300deg); }
+            100% { transform: translate(0, 0) rotate(360deg); }
+        }
+        @keyframes ballRoll2 {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            30% { transform: translate(35px, -50px) rotate(-140deg); }
+            65% { transform: translate(-20px, -30px) rotate(-280deg); }
+            100% { transform: translate(0, 0) rotate(-360deg); }
+        }
+        @keyframes ballRoll3 {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            40% { transform: translate(-15px, -65px) rotate(180deg); }
+            80% { transform: translate(30px, -20px) rotate(320deg); }
+            100% { transform: translate(0, 0) rotate(360deg); }
+        }
+
+        .ball-tumbling-1 { animation: ballRoll1 0.45s infinite ease-in-out; }
+        .ball-tumbling-2 { animation: ballRoll2 0.38s infinite ease-in-out; }
+        .ball-tumbling-3 { animation: ballRoll3 0.52s infinite ease-in-out; }
+
+        @keyframes dropChute {
+            0% { transform: translateY(-70px) scale(0.3); opacity: 0; }
+            70% { transform: translateY(8px) scale(1.1); opacity: 1; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .gashapon-dropped {
+            animation: dropChute 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* 盲盒閃爍動畫 */
+        @keyframes marqueePulse {
+            0%, 100% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.08); filter: brightness(1.4); box-shadow: 0 0 18px rgba(244, 114, 182, 0.95); }
+        }
+        .blind-box-active { 
+            animation: marqueePulse 0.25s infinite alternate; 
+            z-index: 20;
+        }
+
+        /* 蘋果發光與掉落動畫 */
+        @keyframes appleGlow {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(255,255,255,0.8)); }
+            50% { transform: scale(1.2); filter: drop-shadow(0 0 12px rgba(250,204,21,1)); }
+        }
+        .apple-active {
+            animation: appleGlow 0.2s infinite alternate;
+            z-index: 30;
+        }
+
+        @keyframes appleFall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            50% { transform: translateY(80px) rotate(15deg); opacity: 0.9; }
+            100% { transform: translateY(180px) rotate(-10deg) scale(1.1); opacity: 1; }
+        }
+        .apple-dropping {
+            animation: appleFall 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+
+        .drop-zone {
+            min-height: 70px;
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-12 select-none">
+    <div id="app" v-cloak class="max-w-7xl mx-auto px-2 sm:px-4">
+        
+        <!-- 全域 Toast 操作通知 -->
+        <div v-if="toastMessage" class="fixed top-5 right-5 z-50 bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-bounce font-bold text-base border-2 border-emerald-300">
+            <i class="fa-solid fa-circle-check text-2xl"></i>
+            <span>{{ toastMessage }}</span>
+        </div>
+
+        <header class="bg-white rounded-2xl shadow-sm border border-slate-200 mt-3 p-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 text-white p-2.5 rounded-xl text-xl shadow-md">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-slate-800 tracking-tight">班級常規與雙點數管理系統</h1>
+                    <p class="text-xs text-slate-500 font-medium">個人常規 • 分組競賽 • 雙點數管理 • 歡樂抽獎</p>
+                </div>
+            </div>
+
+            <!-- 教師解鎖權限區塊 -->
+            <div class="flex items-center space-x-3">
+                <button @click="toggleLockStatus" :class="['px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm', isUnlocked ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200' : 'bg-slate-800 text-white hover:bg-slate-900']">
+                    <i :class="isUnlocked ? 'fa-solid fa-lock-open' : 'fa-solid fa-lock'"></i>
+                    <span>{{ isUnlocked ? '教師權限: 已解鎖' : '系統鎖定 (點擊解鎖)' }}</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- 導覽標籤頁 -->
+        <nav class="flex flex-wrap gap-2 mt-4">
+            <button v-for="tab in tabs" :key="tab.id"
+                @click="currentTab = tab.id"
+                :class="['px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition flex items-center gap-2 border shadow-sm', currentTab === tab.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50']">
+                <i :class="tab.icon"></i>
+                <span>{{ tab.name }}</span>
+            </button>
+        </nav>
+
+        <!-- 主操作畫面 -->
+        <main class="mt-4">
+
+            <!-- 1. 加分記錄 -->
+            <section v-if="currentTab === 'scoreDashboard'" class="space-y-4">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs font-bold text-slate-700">模式選取：</span>
+                        <div class="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200">
+                            <button @click="scoreMode = 'personal'" :class="['px-3 py-1.5 text-xs font-bold rounded-lg transition', scoreMode === 'personal' ? 'bg-indigo-600 text-white shadow' : 'text-slate-600']">【個人】</button>
+                            <button @click="scoreMode = 'group'" :class="['px-3 py-1.5 text-xs font-bold rounded-lg transition', scoreMode === 'group' ? 'bg-indigo-600 text-white shadow' : 'text-slate-600']">【組別】</button>
+                            <button @click="scoreMode = 'class'" :class="['px-3 py-1.5 text-xs font-bold rounded-lg transition', scoreMode === 'class' ? 'bg-indigo-600 text-white shadow' : 'text-slate-600']">【全班】</button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 flex-wrap gap-y-2">
+                        <span class="text-xs font-bold text-slate-700">選擇分數：</span>
+                        
+                        <div v-if="scoreMode !== 'group'" class="flex items-center space-x-1">
+                            <button v-for="p in [1, 2, 3, 4, 5, 6]" :key="'p'+p"
+                                @click="selectedPoints = p"
+                                :class="['w-7 h-7 sm:w-8 sm:h-8 rounded-full font-black text-xs transition border', selectedPoints === p ? 'bg-indigo-600 text-white border-indigo-700 scale-110 shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300']">
+                                +{{ p }}
+                            </button>
+                            <button v-for="p in [-1, -2, -3]" :key="'n'+p"
+                                @click="selectedPoints = p"
+                                :class="['w-7 h-7 sm:w-8 sm:h-8 rounded-full font-black text-xs transition border', selectedPoints === p ? 'bg-rose-600 text-white border-rose-700 scale-110 shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300']">
+                                {{ p }}
+                            </button>
+                        </div>
+
+                        <div v-if="scoreMode === 'group'" class="flex items-center space-x-2">
+                            <select v-model.number="groupSelectedPoints" class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500">
+                                <option v-for="p in [1,2,3,4,5,6]" :key="'gp'+p" :value="p">+{{ p }} 分</option>
+                                <option v-for="p in [-1,-2,-3]" :key="'gn'+p" :value="p">{{ p }} 分</option>
+                            </select>
+                        </div>
+
+                        <div v-if="scoreMode === 'personal'">
+                            <button @click="applyPersonalScore" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-check"></i> 確定加分 (已選 {{ selectedStudentSeats.length }} 人)
+                            </button>
+                        </div>
+                        <div v-if="scoreMode === 'group'">
+                            <button @click="applyBatchGroupScore" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-check-double"></i> 確定 (已選 {{ selectedGroups.length }} 組, {{ groupSelectedPoints > 0 ? '+' : '' }}{{ groupSelectedPoints }}分)
+                            </button>
+                        </div>
+                        <div v-if="scoreMode === 'class'">
+                            <button @click="applyClassScore" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-users"></i> 確定全班加分 (+{{ selectedPoints }}分)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="scoreMode === 'personal' || scoreMode === 'class'" class="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-10 gap-2.5">
+                    <div v-for="s in students" :key="s.seat"
+                        @click="scoreMode === 'personal' ? toggleStudentSelect(s.seat) : null"
+                        :class="['rounded-xl border transition cursor-pointer relative overflow-hidden shadow-sm hover:shadow-md p-2 text-center select-none flex flex-col justify-between',
+                            scoreMode === 'personal' && selectedStudentSeats.includes(s.seat) ? 'ring-4 ring-indigo-500 border-indigo-600 scale-[1.02]' : 'border-slate-200 bg-white']">
+                        
+                        <div>
+                            <div :class="['rounded-lg p-1.5 flex items-center justify-between mb-2', s.seat <= 14 ? 'bg-sky-100' : 'bg-pink-100']">
+                                <span class="w-6 h-6 rounded-full bg-blue-900 text-white text-[11px] font-black flex items-center justify-center shadow-sm">
+                                    {{ s.seat }}
+                                </span>
+                                <span class="font-black text-slate-800 text-xs truncate max-w-[60px]">{{ s.name }}</span>
+                            </div>
+
+                            <!-- 雙點數呈現區：黃點總數 + 藍點總數 -->
+                            <div class="flex items-center justify-around my-2">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-10 h-10 rounded-full bg-amber-400 text-amber-950 font-black flex items-center justify-center text-base shadow-md border-2 border-amber-300 ring-2 ring-amber-200/50" title="黃點總數">
+                                        {{ getYellowDotsCount(s.yellowPoints) }}
+                                    </div>
+                                </div>
+                                <div class="flex flex-col items-center">
+                                    <div class="w-10 h-10 rounded-full bg-blue-500 text-white font-black flex items-center justify-center text-base shadow-md border-2 border-blue-400 ring-2 ring-blue-200/50" title="藍點總數">
+                                        {{ getPureBlueDotsTotal(s) }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <!-- 直線前進 20 分目標進度條 -->
+                            <div class="mt-1 bg-slate-100 rounded-full h-2 w-full overflow-hidden border border-slate-200 p-0.5">
+                                <div class="bg-amber-500 h-full rounded-full transition-all duration-300" :style="{ width: getPointsMilestonePercent(s.yellowPoints) + '%' }"></div>
+                            </div>
+                            <div class="flex justify-between items-center text-[9px] font-bold text-slate-500 mt-0.5 px-0.5">
+                                <span class="text-indigo-600 font-extrabold">總: {{ getYellowDotsCount(s.yellowPoints) + getPureBlueDotsTotal(s) }} 點</span>
+                                <span>{{ s.yellowPoints % 20 }}/20分</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="scoreMode === 'group'" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
+                    <div v-for="gNum in 6" :key="gNum"
+                        @click="toggleGroupSelect(gNum)"
+                        :class="['rounded-2xl border-2 transition cursor-pointer text-center bg-white shadow-sm hover:shadow flex flex-col justify-between overflow-hidden',
+                            selectedGroups.includes(gNum) ? 'border-indigo-600 ring-4 ring-indigo-100 bg-indigo-50/30' : 'border-slate-200']">
+                        
+                        <div class="bg-amber-100 border-b border-amber-200 py-2 px-3">
+                            <span class="text-xs font-black text-amber-900">第 {{ gNum }} 組</span>
+                        </div>
+
+                        <div class="p-3">
+                            <div class="text-3xl font-black text-indigo-600 mb-2">{{ groupScores[gNum - 1] }} 分</div>
+                            <div class="text-[11px] text-slate-500 font-medium truncate mb-2">{{ getGroupMemberSeatsText(gNum) }}</div>
+                        </div>
+
+                        <div class="p-3 pt-0 space-y-2 border-t border-slate-100">
+                            <select v-model.number="individualGroupPointSettings[gNum - 1]" @click.stop class="w-full border border-slate-300 rounded-xl px-2 py-1 text-xs font-bold bg-white">
+                                <option v-for="p in [1,2,3,4,5,6]" :key="'igp'+p" :value="p">+{{ p }} 分</option>
+                                <option v-for="p in [-1,-2,-3]" :key="'ign'+p" :value="p">{{ p }} 分</option>
+                            </select>
+                            <button @click.stop="applyIndividualGroupScore(gNum)" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-xl text-xs font-bold shadow">
+                                給本組加分
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 常規記錄看板 -->
+            <section v-if="currentTab === 'routineTracking'" class="space-y-4">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800">21週全學期班級常規記錄看板</h2>
+                        <p v-if="startDate" class="text-xs text-indigo-600 font-bold mt-0.5">
+                            📅 行事曆依據：{{ startDate }} 開學 ~ {{ endDate || '未設定' }} 結業 (今日為第 {{ calculatedCurrentWeek }} 週)
+                        </p>
+                    </div>
+
+                    <div class="flex items-center space-x-3 flex-wrap gap-2">
+                        <label class="text-xs font-bold text-slate-700">選擇週次：</label>
+                        <select v-model.number="currentWeek" class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500">
+                            <option v-for="w in 21" :key="w" :value="w">
+                                第 {{ w }} 週 {{ getWeekDateRange(w) }} {{ settledWeeks.includes(w) ? ' (✅已結算)' : '' }}
+                            </option>
+                        </select>
+                        
+                        <button @click="syncWeekWithCalendar" v-if="startDate" class="bg-sky-100 hover:bg-sky-200 text-sky-800 border border-sky-300 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm" title="定位到今日對應週次">
+                            <i class="fa-solid fa-location-crosshairs"></i> 定位到目前週次
+                        </button>
+
+                        <button v-if="!settledWeeks.includes(currentWeek)" 
+                            @click="triggerPasswordProtectedAction(awardAllZeroViolationBonus)" 
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-gift"></i> 當週結算常規得分 (加分並歸零)
+                        </button>
+                        <button v-else 
+                            disabled 
+                            class="bg-slate-200 text-slate-500 px-4 py-2 rounded-xl text-xs font-bold cursor-not-allowed flex items-center gap-1.5 border border-slate-300">
+                            <i class="fa-solid fa-check"></i> 第 {{ currentWeek }} 週已結算完成 (防重複加分)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-6 gap-3">
+                    <div v-for="gNum in 6" :key="gNum" class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm text-center flex flex-col justify-between">
+                        <div>
+                            <div class="text-xs font-bold text-slate-500">第 {{ gNum }} 組當週違規</div>
+                            <div class="text-xl font-black text-rose-600 my-1">
+                                {{ getGroupWeekViolations(gNum, currentWeek) }} 次
+                            </div>
+                            <div class="text-[11px] font-black text-indigo-700 bg-indigo-50 py-1.5 rounded-lg border border-indigo-100 mb-1">
+                                常規應加得分：{{ calculateGroupRoutinePoints(gNum, currentWeek) }} 分
+                            </div>
+                            <div class="text-[10px] text-slate-500 font-bold truncate">
+                                座號：{{ getGroupMemberSeatsText(gNum) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+                    <div v-for="s in students" :key="s.seat" class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
+                                <span class="font-black text-slate-800 text-xs">{{ s.seat }}號 {{ s.name }}</span>
+                                <span v-if="getStudentTotalWeekViolations(s.seat, currentWeek) === 0" class="text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md">
+                                    當週 0 違規 ✨
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-1.5 text-xs">
+                                <div class="bg-slate-50 p-1.5 rounded-lg border flex items-center justify-between">
+                                    <span class="text-slate-600 text-[11px]">⏰ 遲到</span>
+                                    <div class="flex items-center space-x-1">
+                                        <button :disabled="settledWeeks.includes(currentWeek)" @click="updateViolation(s.seat, currentWeek, 'late', -1)" class="w-5 h-5 bg-slate-200 rounded font-bold text-[10px] disabled:opacity-40">-</button>
+                                        <span class="font-black w-4 text-center">{{ getStudentViolation(s.seat, currentWeek, 'late') }}</span>
+                                        <button :disabled="settledWeeks.includes(currentWeek)" @click="updateViolation(s.seat, currentWeek, 'late', 1)" class="w-5 h-5 bg-rose-100 text-rose-700 rounded font-bold text-[10px] disabled:opacity-40">+</button>
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50 p-1.5 rounded-lg border flex items-center justify-between">
+                                    <span class="text-slate-600 text-[11px]">🚶‍♂️ 上課慢</span>
+                                    <div class="flex items-center space-x-1">
+                                        <button :disabled="settledWeeks.includes(currentWeek)" @click="updateViolation(s.seat, currentWeek, 'slow', -1)" class="w-5 h-5 bg-slate-200 rounded font-bold text-[10px] disabled:opacity-40">-</button>
+                                        <span class="font-black w-4 text-center">{{ getStudentViolation(s.seat, currentWeek, 'slow') }}</span>
+                                        <button :disabled="settledWeeks.includes(currentWeek)" @click="updateViolation(s.seat, currentWeek, 'slow', 1)" class="w-5 h-5 bg-rose-100 text-rose-700 rounded font-bold text-[10px] disabled:opacity-40">+</button>
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50 p-1.5 rounded-lg border flex items-center justify-between">
+                                    <span class="text-slate-600 text-[11px]">💤 午休</span>
+                                    <div class="flex items-center space-x-1">
+                                        <button :disabled="settledWeeks.includes(currentWeek)" @click="updateViolation(s.seat, currentWeek, 'nap', -1)" class="w-5 h-5 bg-slate-200 rounded font-bold text-[10px] disabled:opacity-40">-</button>
+                                        <span class="font-black w-4 text-center">{{ getStudentViolation(s.seat, currentWeek, 'nap') }}</span>
+                                        <button :disabled="settledWeeks.includes(currentWeek)" @click="updateViolation(s.seat, currentWeek, 'nap', 1)" class="w-5 h-5 bg-rose-100 text-rose-700 rounded font-bold text-[10px] disabled:opacity-40">+</button>
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50 p-1.5 rounded-lg border flex items-center justify-between">
+                                    <span class="text-slate-600 text-[11px]">🚫 其他</span>
+                                    <div class="flex items-center space-x-1">
+                                        <button :disabled="settledWeeks.includes(currentWeek)" @click="updateViolation(s.seat, currentWeek, 'other', -1)" class="w-5 h-5 bg-slate-200 rounded font-bold text-[10px] disabled:opacity-40">-</button>
+                                        <span class="font-black w-4 text-center">{{ getStudentViolation(s.seat, currentWeek, 'other') }}</span>
+                                        <button :disabled="settledWeeks.includes(currentWeek)" @click="updateViolation(s.seat, currentWeek, 'other', 1)" class="w-5 h-5 bg-rose-100 text-rose-700 rounded font-bold text-[10px] disabled:opacity-40">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button :disabled="settledWeeks.includes(currentWeek)" @click="awardPersonalZeroViolationBonus(s.seat)" class="mt-2 w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white py-1 rounded-xl text-[11px] font-bold shadow">
+                            {{ settledWeeks.includes(currentWeek) ? '當週已結算' : '當週零違規個人加 3 分' }}
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. 分組競賽 (由最新表格排在最上方，舊表格依序往下存放) -->
+            <section v-if="currentTab === 'groupCompetition'" class="space-y-4">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800">分組競賽排行榜 (當前進行中：表格 {{ competitionTables.length }})</h2>
+                    </div>
+
+                    <div class="flex items-center space-x-2 flex-wrap gap-2">
+                        <button @click="archiveWeeklyCompetition" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-box-archive"></i> 封存本週成績至表格 {{ competitionTables.length }}
+                        </button>
+                        <button @click="resetGroupScores" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-rotate"></i> 本週成績歸零
+                        </button>
+                        <button @click="showMonthlyAwardModal = true" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-trophy"></i> 月冠軍結算頒獎
+                        </button>
+                        <button @click="triggerPasswordProtectedAction(executeSeatChangeAndNewTable)" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-arrows-rotate"></i> 重新分組 (換座位結案並建立新表)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 當週即時排名卡片 (固定依第 1 組至第 6 組順序排列) -->
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+                    <div v-for="g in liveGroupCardsOrdered" :key="g.groupNum" class="bg-white rounded-2xl border-2 border-indigo-100 shadow-sm text-center relative overflow-hidden flex flex-col justify-between">
+                        <div>
+                            <!-- 前三名深藍色、後三名綠色標籤 -->
+                            <div :class="['absolute top-0 left-0 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-br-lg z-10', g.rank <= 3 ? 'bg-indigo-600' : 'bg-emerald-600']">
+                                第 {{ g.rank }} 名
+                            </div>
+
+                            <div class="bg-emerald-100 border-b border-emerald-200 pt-3 pb-2 px-2">
+                                <span class="text-sm font-black text-emerald-900">第 {{ g.groupNum }} 組</span>
+                            </div>
+
+                            <div class="p-3">
+                                <div class="text-3xl font-black text-indigo-700 my-1">{{ g.score }} 分</div>
+                            </div>
+                        </div>
+
+                        <div class="p-2.5 text-[11px] text-slate-600 font-bold border-t border-slate-100 bg-slate-50">
+                            {{ g.members.join(', ') || '無' }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 歷屆獨立表格列表 (最新表格排在最上方，舊表格往下堆疊) -->
+                <div v-for="(table, tIdx) in reversedCompetitionTables" :key="table.tableId" class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+                    <div class="flex justify-between items-center border-b pb-2 flex-wrap gap-2">
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-table text-indigo-600"></i> 【表格 {{ table.tableNumber }}】第 {{ table.tableNumber }} 期分組競賽累計表 
+                            <span :class="['text-[10px] px-2 py-0.5 rounded-full font-bold', table.isClosed ? 'bg-slate-100 text-slate-600 border' : 'bg-emerald-100 text-emerald-800 border border-emerald-300']">
+                                {{ table.isClosed ? '🔒 已換座位結案' : '🟢 進行中 (最新)' }}
+                            </span>
+                            <span v-if="table.isAwarded" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                👑 月冠軍已頒獎封存
+                            </span>
+                        </h3>
+                        <span class="text-xs text-slate-500 font-bold">共封存 {{ table.records.length }} 週成績</span>
+                    </div>
+
+                    <div v-if="table.records.length === 0" class="text-center py-6 text-xs text-slate-400 font-bold">
+                        本表格尚未封存任何週次成績（點擊上方「封存本週成績」即可加入本表）
+                    </div>
+
+                    <div v-else class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-700 border-b border-slate-300 font-black text-center">
+                                    <th class="p-2 border">週次記錄</th>
+                                    <th class="p-2 border">日期</th>
+                                    <th v-for="gNum in 6" :key="gNum" class="p-2 border bg-indigo-50 text-indigo-900">
+                                        第 {{ gNum }} 組
+                                        <div class="text-[9px] text-slate-500 font-normal mt-0.5">
+                                            座號: {{ table.groupMembers[gNum - 1].join(',') || '無' }}
+                                        </div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200 text-center font-bold">
+                                <tr v-for="(rec, rIdx) in table.records" :key="rIdx" class="hover:bg-slate-50 transition">
+                                    <td class="p-2.5 border bg-slate-50 text-indigo-900 font-black">
+                                        第 {{ rIdx + 1 }} 次封存
+                                    </td>
+                                    <td class="p-2.5 border text-slate-500 text-[11px]">
+                                        {{ rec.date }}
+                                    </td>
+                                    <td v-for="gNum in 6" :key="gNum" class="p-2.5 border">
+                                        <div class="font-black text-indigo-700 text-sm">{{ rec.scores[gNum - 1] }} 分</div>
+                                        
+                                        <!-- 第 1 名出現皇冠標誌 👑 -->
+                                        <div v-if="rec.ranks[gNum - 1] === 1" class="mt-0.5 inline-block px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                                            👑 第 1 名
+                                        </div>
+                                        <div v-else-if="rec.ranks[gNum - 1] <= 3" class="mt-0.5 inline-block px-2 py-0.5 rounded text-[10px] font-black bg-slate-100 text-slate-700 border">
+                                            第 {{ rec.ranks[gNum - 1] }} 名
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- 本表格各組總分累計列 -->
+                                <tr class="bg-amber-50/70 text-amber-950 font-black">
+                                    <td colspan="2" class="p-2.5 border text-center font-black text-xs text-amber-900">
+                                        🏆 表格 {{ table.tableNumber }} 總分加總
+                                    </td>
+                                    <td v-for="gNum in 6" :key="'sum_'+gNum" class="p-2.5 border text-center text-sm font-black text-amber-900">
+                                        {{ getTableGroupTotalScore(table, gNum) }} 分
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. 抽籤看板與身份挑戰 -->
+            <section v-if="currentTab === 'lottery'" class="space-y-4">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800">智慧抽籤與身份挑戰</h2>
+                    </div>
+
+                    <div class="flex items-center space-x-2 flex-wrap gap-2">
+                        <select v-model="lotteryMode" class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500">
+                            <option value="all">全班隨機抽</option>
+                            <option value="role">指定身份抽</option>
+                            <option value="group">指定組別抽</option>
+                            <option value="onePerGroup">每組各抽一人</option>
+                            <option value="roleChallenge">⚔️ 身份挑戰</option>
+                        </select>
+
+                        <select v-if="lotteryMode === 'role' || lotteryMode === 'roleChallenge'" v-model="selectedRoleForLottery" class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold bg-white">
+                            <option value="教練">教練</option>
+                            <option value="明星">明星</option>
+                            <option value="替補">替補</option>
+                            <option value="黑馬">黑馬</option>
+                        </select>
+
+                        <select v-if="lotteryMode === 'group'" v-model.number="selectedGroupForLottery" class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold bg-white">
+                            <option v-for="g in 6" :key="g" :value="g">第 {{ g }} 組</option>
+                        </select>
+
+                        <div v-if="lotteryMode !== 'onePerGroup' && lotteryMode !== 'roleChallenge'" class="flex items-center space-x-1 text-xs font-bold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-xl border">
+                            <span>一次抽</span>
+                            <select v-model.number="lotteryDrawCount" class="border border-slate-300 rounded-lg px-2 py-0.5 text-xs font-bold bg-white text-indigo-900 border-indigo-200">
+                                <option :value="1">1</option>
+                                <option :value="2">2</option>
+                                <option :value="3">3</option>
+                                <option :value="4">4</option>
+                                <option :value="6">6</option>
+                            </select>
+                            <span>人</span>
+                        </div>
+
+                        <button v-if="lotteryMode !== 'roleChallenge'" @click="drawLottery" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-dice"></i> 開始抽籤
+                        </button>
+
+                        <button v-if="lotteryMode === 'roleChallenge'" @click="initRoleChallenge" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-swords"></i> 載入 {{ selectedRoleForLottery }} 挑戰名單
+                        </button>
+
+                        <button @click="resetLottery" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold">
+                            重置籤池
+                        </button>
+                    </div>
+                </div>
+
+                <div v-if="lotteryMode === 'roleChallenge'" class="bg-white p-5 rounded-2xl border-2 border-rose-200 shadow-sm space-y-4">
+                    <div class="flex justify-between items-center border-b pb-3">
+                        <h3 class="text-sm font-black text-rose-800 flex items-center gap-2">
+                            <i class="fa-solid fa-shield-halved text-rose-600"></i> 【{{ selectedRoleForLottery }}】全班分組挑戰名單
+                        </h3>
+                        <span class="text-xs font-bold text-slate-500">點擊學生可「取消/恢復挑戰」，維持一組一位參賽</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
+                        <div v-for="gNum in 6" :key="gNum" class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <div class="font-extrabold text-xs text-slate-700 mb-2 border-b pb-1">第 {{ gNum }} 組</div>
+                            
+                            <div v-if="getGroupRoleStudents(gNum, selectedRoleForLottery).length === 0" class="text-[11px] text-slate-400 py-2 text-center">
+                                (無{{ selectedRoleForLottery }})
+                            </div>
+
+                            <div v-else class="space-y-1.5">
+                                <div v-for="s in getGroupRoleStudents(gNum, selectedRoleForLottery)" :key="s.seat"
+                                    @click="toggleRoleChallengeSeat(s.seat)"
+                                    :class="['p-2 rounded-lg border text-xs font-black cursor-pointer transition flex items-center justify-between',
+                                        activeRoleChallengeSeats.includes(s.seat) ? 'bg-rose-50 border-rose-400 text-rose-900 shadow-sm' : 'bg-white border-slate-300 text-slate-400 opacity-60']">
+                                    <span>{{ s.seat }}號 {{ s.name }}</span>
+                                    <i :class="['fa-solid', activeRoleChallengeSeats.includes(s.seat) ? 'fa-check-circle text-rose-600' : 'fa-circle text-slate-300']"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <span class="font-bold text-slate-700">挑戰成功加分 (共選取 {{ activeRoleChallengeSeats.length }} 人)：</span>
+                        
+                        <div class="flex items-center space-x-2">
+                            <select v-model.number="lotteryPointsToAward" class="border border-slate-300 rounded-lg px-2.5 py-1 font-bold">
+                                <option :value="1">+1 分</option>
+                                <option :value="2">+2 分</option>
+                                <option :value="3">+3 分</option>
+                            </select>
+                            <button @click="applyRoleChallengeScore('personal')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold shadow">
+                                參賽個人加分
+                            </button>
+                            <button @click="applyRoleChallengeScore('both')" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg font-bold shadow">
+                                個人 + 組別加分
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="lotteryMode !== 'roleChallenge' && drawnStudents.length > 0" class="bg-white p-6 rounded-2xl border-2 border-indigo-200 shadow-sm text-center space-y-4">
+                    <h3 class="text-xs font-bold text-slate-400">🎉 幸運中籤學生</h3>
+                    <div class="flex flex-wrap justify-center gap-4">
+                        <div v-for="s in drawnStudents" :key="s.seat"
+                            @click="toggleDrawnStudentCheck(s.seat)"
+                            :class="['p-4 rounded-2xl border-2 transition cursor-pointer min-w-[120px]',
+                                checkedDrawnSeats.includes(s.seat) ? 'border-emerald-500 bg-emerald-50 ring-4 ring-emerald-100' : 'border-slate-200 bg-slate-50']">
+                            <div class="text-xs font-bold text-slate-500">{{ s.seat }}號</div>
+                            <div class="text-lg font-black text-slate-800">{{ s.name }}</div>
+                            <div class="text-[10px] text-indigo-600 font-bold mt-1">第 {{ s.group }} 組 • {{ s.role }}</div>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-center gap-3 text-xs">
+                        <span class="font-bold text-slate-700">答對加分：</span>
+                        <select v-model.number="lotteryPointsToAward" class="border border-slate-300 rounded-lg px-2.5 py-1 font-bold">
+                            <option :value="1">+1 分</option>
+                            <option :value="2">+2 分</option>
+                            <option :value="3">+3 分</option>
+                        </select>
+                        <button @click="applyLotteryScore('personal')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold shadow">
+                            個人
+                        </button>
+                        <button @click="applyLotteryScore('both')" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg font-bold shadow">
+                            個人 + 組別
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. 點數記錄 -->
+            <section v-if="currentTab === 'blueDotTracking'" class="space-y-4">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800">點數統計與發放管理</h2>
+                    </div>
+
+                    <div class="flex items-center space-x-3 flex-wrap gap-2">
+                        <div class="flex items-center space-x-1">
+                            <span class="text-xs font-bold text-slate-700">贈送點數 (最多3點)：</span>
+                            <select v-model.number="batchGiftDotsAmount" class="border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold">
+                                <option :value="1">1 點</option>
+                                <option :value="2">2 點</option>
+                                <option :value="3">3 點</option>
+                            </select>
+                            <button @click="applyBatchGiftDots" class="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow">
+                                藍點確認送出
+                            </button>
+                        </div>
+
+                        <button @click="consolidateGiftedBlueDots" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-arrows-rotate"></i> 全班贈送藍點一鍵加總歸零
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 text-slate-700 border-b border-slate-200 font-black">
+                            <tr>
+                                <th class="p-3">座號</th>
+                                <th class="p-3">姓名</th>
+                                <th class="p-3 text-amber-700">黃點 🟡</th>
+                                <th class="p-3 text-sky-700">藍點 🔵</th>
+                                <th class="p-3 text-indigo-700">總點數</th>
+                                <th class="p-3 text-purple-700">贈送點數</th>
+                                <th class="p-3 text-rose-700">已兌換點數</th>
+                                <th class="p-3 text-emerald-700">可兌換點數</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="s in students" :key="s.seat" class="hover:bg-slate-50 transition">
+                                <td class="p-3 font-bold text-slate-500">{{ s.seat }}</td>
+                                <td class="p-3 font-bold text-slate-800">{{ s.name }}</td>
+                                <td class="p-3 font-black text-amber-600">🟡 {{ getYellowDotsCount(s.yellowPoints) }} 個</td>
+                                <td class="p-3 font-black text-sky-600">
+                                    <select v-model.number="s.manualBlueDots" class="border border-slate-300 rounded-lg px-2 py-1 font-bold">
+                                        <option v-for="n in 51" :key="n-1" :value="n-1">{{ n-1 }} 點</option>
+                                    </select>
+                                </td>
+                                <td class="p-3 font-black text-indigo-600 text-sm">{{ calculateTotalBlueDots(s) }} 點</td>
+                                <td class="p-3">
+                                    <input type="number" min="0" max="3" v-model.number="s.giftedBlueDots" class="w-20 border border-slate-300 rounded-lg px-2 py-1 text-center font-bold">
+                                </td>
+                                <td class="p-3 font-black text-rose-600 text-sm">
+                                    {{ calculateRedeemedBlueDots(s.seat) }} 點
+                                </td>
+                                <td class="p-3 font-black text-emerald-600 text-sm">
+                                    {{ calculateAvailableBlueDots(s) }} 點
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 6. 兌換獎勵 -->
+            <section v-if="currentTab === 'rewardStore'" class="space-y-4">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800">學生點數兌換門市 (依所需點數排序)</h2>
+                    </div>
+
+                    <button @click="showAddRewardModal = true" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus"></i> 新增獎勵項目
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div v-for="r in sortedRewards" :key="r.id" class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between relative group">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-black text-slate-800 text-sm">{{ r.name }}</span>
+                                <span class="bg-indigo-100 text-indigo-800 text-xs font-black px-2.5 py-0.5 rounded-full">{{ r.cost }} 點</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 flex gap-2">
+                            <button @click="openStudentRedeemModal(r)" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-xs font-bold shadow flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-cart-shopping"></i> 選取學生兌換
+                            </button>
+                            <button @click="removeRewardItem(r.id)" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-2 rounded-xl text-xs font-bold transition" title="刪除此獎勵">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-receipt text-indigo-600"></i> 📋 學生獎勵兌換紀錄日誌
+                    </h3>
+                    <div v-if="redemptionLogs.length === 0" class="text-xs text-slate-400 py-3 text-center">
+                        暫無兌換紀錄
+                    </div>
+                    <div v-else class="space-y-1.5 max-h-56 overflow-y-auto text-xs">
+                        <div v-for="(log, lIdx) in redemptionLogs" :key="lIdx" class="p-2.5 bg-slate-50 rounded-xl border flex justify-between items-center">
+                            <span><strong class="text-slate-800">{{ log.seat }}號 {{ log.studentName }}</strong> 兌換了 <strong class="text-indigo-600">{{ log.rewardName }}</strong> (-{{ log.cost }}點)</span>
+                            <span class="text-slate-400 text-[10px]">{{ log.date }}</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 7. 抽獎兌換遊樂場 -->
+            <section v-if="currentTab === 'arcadeLottery'" class="space-y-4">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800">歡樂抽獎遊樂場 (每次玩扣除 1 個點數)</h2>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <label class="text-xs font-bold text-slate-700">玩家學生：</label>
+                        <select v-model.number="arcadePlayerSeat" class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500">
+                            <option v-for="s in students" :key="s.seat" :value="s.seat">
+                                {{ s.seat }}號 {{ s.name }} (可兌換點數: {{ calculateAvailableBlueDots(s) }})
+                            </option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
+                    <button @click="arcadeGameType = 'gashapon'" :class="['px-4 py-2 rounded-xl font-bold text-xs shadow-sm', arcadeGameType === 'gashapon' ? 'bg-amber-600 text-white' : 'bg-white text-slate-600']">🔮 扭蛋機</button>
+                    <button @click="arcadeGameType = 'blindBox'" :class="['px-4 py-2 rounded-xl font-bold text-xs shadow-sm', arcadeGameType === 'blindBox' ? 'bg-pink-600 text-white' : 'bg-white text-slate-600']">🎁 盲盒牆 (16格)</button>
+                    <button @click="arcadeGameType = 'appleTree'" :class="['px-4 py-2 rounded-xl font-bold text-xs shadow-sm', arcadeGameType === 'appleTree' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600']">🍎 歡樂蘋果樹</button>
+                    <button @click="arcadeGameType = 'prizePool'" :class="['px-4 py-2 rounded-xl font-bold text-xs shadow-sm', arcadeGameType === 'prizePool' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600']">⚙️ 獎項設定</button>
+                </div>
+
+                <!-- GAME 1: 扭蛋機 -->
+                <div v-if="arcadeGameType === 'gashapon'" class="bg-amber-950 p-6 rounded-3xl border-4 border-amber-800 shadow-2xl text-white relative max-w-xl mx-auto text-center">
+                    <h3 class="font-black text-amber-200 text-lg mb-2">🔮 歡樂扭蛋機</h3>
+                    
+                    <div class="relative w-64 h-80 mx-auto bg-slate-900/90 rounded-3xl border-4 border-amber-500 p-4 shadow-2xl flex flex-col justify-between items-center overflow-hidden">
+                        
+                        <div class="relative w-48 h-48 rounded-full border-4 border-amber-300/60 bg-sky-200/20 backdrop-blur-xs flex items-center justify-center overflow-hidden shadow-inner">
+                            <div v-for="(bColor, bIdx) in gashaponBalls" :key="bIdx"
+                                class="absolute w-8 h-8 rounded-full shadow-md border border-white/50 transition-all duration-300"
+                                :class="isGashaponSpinning ? (bIdx % 3 === 0 ? 'ball-tumbling-1' : bIdx % 3 === 1 ? 'ball-tumbling-2' : 'ball-tumbling-3') : ''"
+                                :style="{
+                                    backgroundColor: bColor,
+                                    left: (10 + (bIdx * 22) % 65) + '%',
+                                    top: (15 + (bIdx * 19) % 55) + '%'
+                                }">
+                            </div>
+                        </div>
+
+                        <div class="w-full bg-slate-800 rounded-2xl p-3 border-2 border-slate-700 flex flex-col items-center justify-center">
+                            <div class="w-20 h-10 bg-slate-950 rounded-lg border-2 border-slate-700 flex items-center justify-center relative overflow-hidden">
+                                <div v-if="hasGashaponDropped" class="w-8 h-8 rounded-full border-2 border-white shadow-lg gashapon-dropped" :style="{ backgroundColor: droppedBallColor }"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6">
+                        <button @click="triggerGashaponAction" class="bg-amber-500 hover:bg-amber-400 text-amber-950 font-black px-8 py-3 rounded-2xl shadow-xl text-sm transition">
+                            {{ gashaponStep === 0 ? '🔮 1. 旋轉攪拌扭蛋 (扣1點)' : gashaponStep === 1 ? '🎁 2. 確定開獎！' : '🔮 再玩一次扭蛋 (扣1點)' }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- GAME 2: 盲盒牆 -->
+                <div v-if="arcadeGameType === 'blindBox'" class="bg-slate-900 p-6 rounded-3xl border-4 border-pink-900 shadow-2xl text-white max-w-4xl mx-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-black text-pink-300 text-lg">盲盒牆</h3>
+                        <button @click="startBlindBoxMarquee" :disabled="isBlindBoxRunning" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-4 py-2 rounded-xl text-xs shadow">
+                            {{ isBlindBoxRunning ? '盲盒閃爍中...' : '▶ 開始選擇' }}
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-4 gap-3">
+                        <div v-for="boxNum in 16" :key="boxNum"
+                            @click="selectBlindBox(boxNum)"
+                            :class="['h-20 rounded-2xl border-2 flex items-center justify-center font-black text-xl cursor-pointer transition select-none shadow-md',
+                                activeBlindBoxIndex === boxNum ? 'border-amber-300 bg-amber-400 text-slate-900 blind-box-active scale-105 border-4 ring-4 ring-amber-300/80 shadow-2xl' : 'border-slate-700 text-slate-100 hover:border-pink-500']"
+                            :style="{ backgroundColor: activeBlindBoxIndex === boxNum ? '' : getBlindBoxColor(boxNum) }">
+                            📦 {{ boxNum }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GAME 3: 歡樂蘋果樹 -->
+                <div v-if="arcadeGameType === 'appleTree'" class="bg-slate-900 p-6 rounded-3xl border-4 border-emerald-900 shadow-2xl text-white max-w-2xl mx-auto text-center">
+                    <h3 class="font-black text-emerald-300 text-2xl mb-2">🍎 歡樂蘋果樹</h3>
+                    <p class="text-xs text-emerald-200/80 mb-4">點擊「▶ 開始選擇」讓 16 顆蘋果輪流亮燈，再點擊「🍎 確定抓蘋果！」飄落揭曉！</p>
+
+                    <div class="relative w-full h-80 bg-gradient-to-b from-sky-950 via-emerald-950 to-emerald-900 rounded-3xl border-2 border-emerald-600/50 p-4 shadow-inner flex flex-col items-center justify-between overflow-hidden">
+                        
+                        <div class="absolute bottom-0 w-24 h-40 bg-amber-950 rounded-t-2xl border-x-4 border-amber-900"></div>
+                        <div class="absolute top-2 w-full max-w-lg h-56 bg-emerald-600/40 rounded-full blur-xl"></div>
+                        <div class="absolute top-6 w-full max-w-md h-48 bg-emerald-500/30 rounded-full blur-md"></div>
+
+                        <div class="relative z-10 grid grid-cols-4 sm:grid-cols-8 gap-3 w-full max-w-xl mx-auto pt-4">
+                            <div v-for="aNum in 16" :key="aNum"
+                                @click="selectApple(aNum)"
+                                :class="['relative p-2 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition border-2 select-none',
+                                    activeAppleIndex === aNum ? 'bg-amber-400 border-amber-200 text-slate-950 scale-110 apple-active ring-4 ring-amber-300' : 'bg-slate-900/90 border-slate-700 text-white hover:bg-slate-800 hover:scale-105 hover:border-emerald-500',
+                                    isAppleDropping && activeAppleIndex === aNum ? 'apple-dropping' : '']">
+                                
+                                <span class="text-2xl drop-shadow-md">🍎</span>
+                                <span class="text-[10px] font-black mt-0.5 drop-shadow text-emerald-300">{{ aNum }}</span>
+                            </div>
+                        </div>
+
+                        <div class="relative z-10 w-48 bg-amber-800 border-2 border-amber-600 text-amber-200 font-extrabold text-xs py-1.5 rounded-xl shadow-lg mt-2">
+                            🧺 接住摘下的蘋果
+                        </div>
+                    </div>
+
+                    <div class="mt-5">
+                        <button @click="triggerAppleAction" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-8 py-3 rounded-2xl shadow-xl text-sm transition">
+                            {{ appleStep === 0 ? '▶ 開始選擇 (扣1點)' : appleStep === 1 ? '🍎 確定抓這顆蘋果！' : '🍎 再摘一顆蘋果 (扣1點)' }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ⚙️ 獎項設定 -->
+                <div v-if="arcadeGameType === 'prizePool'" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 min-h-[300px]">
+                    <div class="flex flex-wrap justify-between items-center border-b pb-3 gap-2">
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-database text-indigo-600"></i> 獎項設定
+                        </h3>
+                        
+                        <div v-if="!isPrizePoolUnlocked" class="flex items-center space-x-2">
+                            <input type="password" v-model="prizePoolPassword" placeholder="輸入教師密碼" @keyup.enter="verifyPrizePoolPassword" class="border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-bold text-center focus:ring-2 focus:ring-indigo-500">
+                            <button @click="verifyPrizePoolPassword" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-xl text-xs font-bold shadow">
+                                <i class="fa-solid fa-key"></i> 解鎖顯示
+                            </button>
+                        </div>
+                        <div v-else class="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                            <i class="fa-solid fa-unlock"></i> 已解鎖編輯權限
+                        </div>
+                    </div>
+
+                    <div v-if="!isPrizePoolUnlocked" class="py-16 text-center text-slate-400 text-xs font-bold">
+                        <i class="fa-solid fa-lock text-3xl mb-2 text-slate-300"></i>
+                        <p>內容已遮蔽，請於右上方輸入教師密碼解鎖查閱與設定。</p>
+                    </div>
+
+                    <div v-else class="space-y-4">
+                        <div class="flex gap-2">
+                            <input type="text" v-model="newArcadePrizeName" placeholder="輸入獎勵名稱..." class="border border-slate-300 rounded-xl px-3 py-2 text-xs flex-1 font-bold">
+                            <input type="number" min="1" max="99" v-model.number="newArcadePrizeCount" placeholder="次數" class="w-20 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-center">
+                            <button @click="addArcadePrizeItem" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow">
+                                新增項目
+                            </button>
+                        </div>
+
+                        <!-- 獎項清單 (次數可即時輸入更改) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-72 overflow-y-auto p-1">
+                            <div v-for="(pItem, pIdx) in weightedPrizeList" :key="pIdx" class="p-3 bg-slate-50 border rounded-xl flex justify-between items-center text-xs">
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-black text-slate-800">🎁 {{ pItem.name }}</span>
+                                    <div class="flex items-center space-x-1 bg-white border border-indigo-200 rounded-lg px-2 py-0.5">
+                                        <span class="text-[10px] text-slate-500 font-bold">次數:</span>
+                                        <input type="number" min="0" max="99" v-model.number="pItem.count" class="w-12 text-center font-black text-indigo-700 text-xs outline-none bg-transparent">
+                                    </div>
+                                </div>
+                                <button @click="removeArcadePrizeItem(pIdx)" class="text-rose-600 font-bold hover:underline ml-2">刪除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 8. 指定身份與分組 (換座位設定) -->
+            <section v-if="currentTab === 'settings'" class="space-y-4">
+                <div class="bg-indigo-900 text-white p-4 rounded-2xl shadow-md flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-bold">Data Backup & Restore 全系統資料安全備份</h2>
+                    </div>
+
+                    <div class="flex items-center space-x-2 flex-wrap gap-2">
+                        <button @click="exportBackupJSON" class="bg-emerald-500 hover:bg-emerald-600 text-slate-900 px-4 py-2 rounded-xl text-xs font-black shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-download"></i> 下載備份檔 (.json)
+                        </button>
+                        <label class="bg-amber-400 hover:bg-amber-500 text-slate-900 px-4 py-2 rounded-xl text-xs font-black shadow cursor-pointer flex items-center gap-1.5">
+                            <i class="fa-solid fa-upload"></i> 上傳備份檔 (.json)
+                            <input type="file" accept=".json" @change="importBackupJSON" class="hidden">
+                        </label>
+                        <button @click="exportCSVReport" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-xl text-xs font-black shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-excel"></i> 匯出 Excel (CSV) 報表
+                        </button>
+                        <button @click="openResetConfirmModal" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-rotate-left"></i> ⚠️ 數據一鍵歸零 (新學期)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                    <div class="p-4 bg-sky-50 rounded-2xl border border-sky-200 space-y-3">
+                        <div class="pb-1 border-b border-sky-200 flex justify-between items-center">
+                            <h3 class="font-black text-sky-900 text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-calendar-days text-sky-600"></i> 📅 學校學期行事曆與開學日設定
+                            </h3>
+                            <span class="text-xs font-bold text-sky-700">可配合學校實際行事曆精準連動週次</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-bold text-slate-700">
+                            <div>
+                                <label class="block mb-1">開學日期 (第 1 週開始)：</label>
+                                <input type="date" v-model="startDate" class="w-full border border-slate-300 rounded-xl p-2 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block mb-1">學期結束日期 (結業日)：</label>
+                                <input type="date" v-model="endDate" class="w-full border border-slate-300 rounded-xl p-2 bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+
+                        <div class="pt-1 flex justify-between items-center flex-wrap gap-2 text-xs">
+                            <span v-if="startDate" class="font-black text-indigo-700">
+                                ✨ 依據設定：今日為開學後 <span class="bg-indigo-600 text-white px-2 py-0.5 rounded-md">第 {{ calculatedCurrentWeek }} 週</span>
+                            </span>
+                            <span v-else class="text-slate-400">尚未填寫開學日（系統預設手動切換第 1~21 週）</span>
+
+                            <button @click="syncWeekWithCalendar" v-if="startDate" class="bg-sky-600 hover:bg-sky-700 text-white px-3.5 py-1.5 rounded-xl font-bold shadow">
+                                同步連動常規記錄至第 {{ calculatedCurrentWeek }} 週
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="pb-2 border-b">
+                        <h3 class="font-bold text-slate-800 text-sm">指定身份與分組 (平均每四週換一次座位)</h3>
+                    </div>
+
+                    <div>
+                        <h4 class="text-xs font-black text-slate-700 mb-2">① 身份指定 (教練-紅 / 明星-黃 / 替補-綠 / 黑馬-藍)：</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                            <div v-for="roleName in ['教練', '明星', '替補', '黑馬']" :key="roleName"
+                                @dragover.prevent
+                                @drop="handleRoleDrop($event, roleName)"
+                                :class="['p-3 rounded-2xl border-2 drop-zone flex flex-col', getRoleBgStyle(roleName)]">
+                                <div class="font-extrabold text-xs mb-2 border-b pb-1 flex justify-between">
+                                    <span>{{ roleName }}</span>
+                                    <span class="text-[10px] opacity-80">{{ getRoleStudents(roleName).length }} 人</span>
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <div v-for="s in getRoleStudents(roleName)" :key="s.seat"
+                                        draggable="true"
+                                        @dragstart="handleDragStart($event, s.seat)"
+                                        class="px-2.5 py-1.5 rounded-lg text-xs font-black bg-white shadow-sm border border-slate-300 cursor-grab active:cursor-grabbing hover:scale-[1.02] transition text-center w-full">
+                                        {{ s.seat }}號 {{ s.name }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="text-xs font-black text-slate-700 mb-2">② 六組分組 (拖拉座號至對應組別)：</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
+                            <div v-for="gNum in 6" :key="gNum"
+                                @dragover.prevent
+                                @drop="handleGroupDrop($event, gNum)"
+                                class="p-3 rounded-2xl border-2 border-indigo-100 bg-indigo-50/40 drop-zone flex flex-col">
+                                <div class="font-extrabold text-xs text-indigo-900 mb-2 border-b border-indigo-200 pb-1 flex justify-between">
+                                    <span>第 {{ gNum }} 組</span>
+                                    <span class="text-[10px] text-indigo-600">{{ getGroupMembers(gNum).length }} 人</span>
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <div v-for="s in getGroupMembers(gNum)" :key="s.seat"
+                                        draggable="true"
+                                        @dragstart="handleDragStart($event, s.seat)"
+                                        :class="['px-2.5 py-1.5 rounded-lg text-xs font-black shadow-sm border cursor-grab active:cursor-grabbing hover:scale-[1.02] transition text-center w-full', getRoleSeatBadgeColor(s.role)]">
+                                        {{ s.seat }}號 {{ s.name }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t space-y-3">
+                        <div class="flex items-center space-x-3 text-xs flex-wrap gap-y-2">
+                            <label class="font-bold text-slate-700">班級總人數：</label>
+                            <input type="number" min="1" max="50" v-model.number="classSizeInput" class="w-20 border border-slate-300 rounded-lg px-2 py-1 text-center font-bold">
+                            <button @click="applyClassSizeChange" class="bg-slate-700 text-white px-3 py-1 rounded-lg font-bold">套用人數</button>
+                            
+                            <button @click="saveClassSettings" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-1 rounded-lg font-bold shadow">
+                                <i class="fa-solid fa-floppy-disk"></i> 儲存名冊
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 max-h-80 overflow-y-auto p-1">
+                            <div v-for="s in students" :key="s.seat" class="p-3 bg-slate-50 border rounded-xl space-y-2 text-xs">
+                                <div class="font-bold text-slate-700">
+                                    <span>{{ s.seat }} 號</span>
+                                </div>
+                                <input type="text" v-model="s.name" placeholder="學生姓名" class="w-full border border-slate-300 rounded-lg px-2 py-1 font-bold">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- 👑 月冠軍結算頒獎典禮 Modal -->
+        <div v-if="showMonthlyAwardModal" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center border-b pb-3 flex-wrap gap-2">
+                    <h3 class="text-lg font-black text-amber-600 flex items-center gap-2">
+                        👑 月冠軍競賽結算頒獎典禮
+                    </h3>
+
+                    <button @click="showMonthlyAwardModal = false" class="text-slate-400 hover:text-slate-600 font-black text-xl">✕</button>
+                </div>
+
+                <!-- 選擇結算哪一個表格 -->
+                <div class="p-3 bg-amber-50 rounded-2xl border border-amber-200 flex items-center justify-between flex-wrap gap-2 text-xs font-bold text-slate-700">
+                    <div class="flex items-center space-x-2">
+                        <span>選擇要結算的比賽表格：</span>
+                        <select v-model.number="selectedTableIndex" class="border border-slate-300 rounded-xl px-3 py-1.5 bg-white text-amber-900 font-black text-sm">
+                            <option v-for="(tbl, idx) in competitionTables" :key="tbl.tableId" :value="idx">
+                                【表格 {{ tbl.tableNumber }}】第 {{ tbl.tableNumber }} 期 (累積 {{ tbl.records.length }} 週) {{ tbl.isAwarded ? '- 👑已頒獎封存' : (tbl.isClosed ? '- 🔒已換座' : '- 🟢進行中') }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <span v-if="currentSelectedTable.isAwarded" class="text-rose-700 bg-rose-100 border border-rose-300 px-2.5 py-1 rounded-lg font-black">
+                            🔒 已頒獎封存
+                        </span>
+                        <!-- 救援按鍵：若誤按頒獎，可輸入密碼解除封存重新結算 -->
+                        <button v-if="currentSelectedTable.isAwarded" 
+                            @click="triggerPasswordProtectedAction(unsealCurrentTableAward)" 
+                            class="bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow">
+                            <i class="fa-solid fa-unlock"></i> 解除頒獎封存 (重新結算)
+                        </button>
+                    </div>
+                </div>
+
+                <p class="text-xs text-slate-500 font-medium">
+                    採計規則：加總【<strong class="text-amber-700">表格 {{ currentSelectedTable.tableNumber }}</strong>】內所有週次的前三名紀錄（第1名+3分/1糖，第2名+2分/1糖，第3名+1分/1糖），按名次順序為<strong>該表格固定組員座號</strong>加分。
+                </p>
+
+                <!-- 若表格內尚未封存任何週次成績，明確給出提示 -->
+                <div v-if="currentSelectedTable.records.length === 0" class="p-6 bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl text-center space-y-2">
+                    <div class="text-3xl text-slate-300"><i class="fa-solid fa-clipboard-list"></i></div>
+                    <div class="font-black text-slate-600 text-sm">【表格 {{ currentSelectedTable.tableNumber }}】尚未封存任何週次成績</div>
+                    <p class="text-xs text-slate-400">請先在分組競賽看板點擊「封存本週成績」，累積週次成績後即可進行月冠軍結算頒獎！</p>
+                </div>
+
+                <!-- 依名次尊榮排序呈現 (第 1 名 ➔ 第 6 名) -->
+                <div v-else class="space-y-3">
+                    <div v-for="gAward in calculatedMonthlyAwards" :key="gAward.groupNum" 
+                        :class="['p-4 rounded-2xl border-2 flex flex-wrap justify-between items-center text-xs gap-2 transition shadow-sm',
+                            gAward.finalRank === 1 ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-300/50' : 
+                            gAward.finalRank === 2 ? 'border-slate-300 bg-slate-50' :
+                            gAward.finalRank === 3 ? 'border-amber-200 bg-orange-50/40' : 'border-slate-200 bg-white']">
+                        
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-base shadow-sm"
+                                :class="gAward.finalRank === 1 ? 'bg-amber-400 text-amber-950 border-2 border-amber-300' :
+                                        gAward.finalRank === 2 ? 'bg-slate-200 text-slate-800 border' :
+                                        gAward.finalRank === 3 ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'">
+                                {{ gAward.finalRank === 1 ? '👑 1' : gAward.finalRank === 2 ? '🥈 2' : gAward.finalRank === 3 ? '🥉 3' : gAward.finalRank }}
+                            </div>
+
+                            <div>
+                                <div class="font-black text-slate-800 text-sm flex items-center gap-2">
+                                    <span>第 {{ gAward.groupNum }} 組</span>
+                                    <span class="text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">總分: {{ gAward.totalScore }} 分</span>
+                                </div>
+                                <div class="text-slate-600 font-bold mt-1">
+                                    當時組員座號：{{ gAward.members.join(', ') || '無' }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-right bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                            <div class="font-black text-emerald-600">個人加分: +{{ gAward.bonusPoints }} 分</div>
+                            <div class="font-black text-amber-600">獎品個數: {{ gAward.candyCount }} 個</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-2">
+                    <button v-if="!currentSelectedTable.isAwarded" 
+                        :disabled="currentSelectedTable.records.length === 0"
+                        @click="applyMonthlyAwards" 
+                        :class="['font-black px-6 py-2.5 rounded-xl text-xs shadow transition',
+                            currentSelectedTable.records.length === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300' : 'bg-amber-500 hover:bg-amber-600 text-slate-900']">
+                        {{ currentSelectedTable.records.length === 0 ? '請先封存週次成績方可發放' : '🏆 發放【表格 ' + currentSelectedTable.tableNumber + '】獎勵 (發放後立即封存)' }}
+                    </button>
+                    <button v-else 
+                        disabled 
+                        class="bg-slate-200 text-slate-500 font-black px-6 py-2.5 rounded-xl text-xs cursor-not-allowed border border-slate-300">
+                        ✅ 本表格月冠軍獎勵已發放完成 (已封存)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 學生兌換門市對話盒 -->
+        <div v-if="showStudentRedeemModal" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                <h3 class="text-base font-black text-slate-800">選取學生兌換：{{ selectedRewardForRedeem?.name }}</h3>
+                <p class="text-xs text-slate-500">所需點數：<strong class="text-indigo-600">{{ selectedRewardForRedeem?.cost }} 點</strong></p>
+
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-700">選擇學生：</label>
+                    <select v-model.number="redeemingStudentSeat" class="w-full border border-slate-300 rounded-xl p-2 text-xs font-bold bg-white">
+                        <option v-for="s in students" :key="s.seat" :value="s.seat">
+                            {{ s.seat }}號 {{ s.name }} (可兌換點數: {{ calculateAvailableBlueDots(s) }})
+                        </option>
+                    </select>
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showStudentRedeemModal = false" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold">取消</button>
+                    <button @click="confirmStudentRedeem" class="bg-emerald-600 text-white px-5 py-2 rounded-xl text-xs font-bold shadow">確定扣點兌換</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增獎勵項目 Modal -->
+        <div v-if="showAddRewardModal" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                <h3 class="text-base font-black text-slate-800">新增兌換獎勵項目</h3>
+                
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="font-bold text-slate-700">獎勵名稱：</label>
+                        <input type="text" v-model="newRewardName" placeholder="例如: 換座位卡" class="w-full border rounded-xl p-2 mt-1 font-bold">
+                    </div>
+                    <div>
+                        <label class="font-bold text-slate-700">所需點數：</label>
+                        <input type="number" min="1" v-model.number="newRewardCost" class="w-full border rounded-xl p-2 mt-1 font-bold">
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showAddRewardModal = false" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold">取消</button>
+                    <button @click="addNewRewardItem" class="bg-indigo-600 text-white px-5 py-2 rounded-xl text-xs font-bold shadow">確認新增</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 盲盒確定選擇確認對話盒 -->
+        <div v-if="showBlindBoxConfirmModal" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+                <div class="text-4xl">🎁</div>
+                <h3 class="text-base font-black text-slate-800">確定選擇第 {{ pendingBlindBoxIndex }} 號盲盒嗎？</h3>
+                <p class="text-xs text-slate-500">將會扣除 1 個點數並開牌揭曉獎勵內容！</p>
+
+                <div class="flex justify-center space-x-3 pt-2">
+                    <button @click="showBlindBoxConfirmModal = false" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold">再想想</button>
+                    <button @click="confirmBlindBoxReveal" class="bg-pink-600 text-white px-5 py-2 rounded-xl text-xs font-bold shadow">確定揭曉獎勵</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 抽獎獎勵揭曉 Modal -->
+        <div v-if="showArcadeWinModal" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+                <div class="text-5xl">🎉</div>
+                <h3 class="text-xs font-bold text-slate-400">恭喜獲得抽獎獎勵</h3>
+                <div class="text-xl font-black text-indigo-700 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                    {{ winningPrizeText }}
+                </div>
+                <button @click="showArcadeWinModal = false" class="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-bold text-xs shadow">
+                    開心收下獎勵
+                </button>
+            </div>
+        </div>
+
+        <!-- 密碼解鎖對話盒 -->
+        <div v-if="showPasswordModal" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+                <div class="text-3xl text-indigo-600"><i class="fa-solid fa-lock"></i></div>
+                <h3 class="text-base font-black text-slate-800">請輸入教師解鎖密碼</h3>
+                <input type="password" v-model="inputPassword" placeholder="••••" @keyup.enter="verifyPassword" class="w-full border border-slate-300 rounded-xl p-2.5 text-center text-lg font-black tracking-widest focus:ring-2 focus:ring-indigo-500">
+                
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showPasswordModal = false" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold">取消</button>
+                    <button @click="verifyPassword" class="bg-indigo-600 text-white px-5 py-2 rounded-xl text-xs font-bold shadow">解鎖</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 數據一鍵歸零對話盒 -->
+        <div v-if="showResetConfirmModal" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+                <div class="text-4xl text-rose-600"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <h3 class="text-base font-black text-slate-800">數據一鍵歸零 (需要密碼)</h3>
+                <p class="text-xs text-slate-500">將歸零所有學生點數、組別成績與常規登記（名冊與獎勵品項會保留）。</p>
+
+                <input type="password" v-model="resetConfirmPassword" placeholder="請輸入教師密碼" @keyup.enter="executeFullDataReset" class="w-full border border-slate-300 rounded-xl p-2 text-center text-sm font-black focus:ring-2 focus:ring-rose-500">
+
+                <div class="flex justify-center space-x-2 pt-2">
+                    <button @click="showResetConfirmModal = false" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold">取消</button>
+                    <button @click="executeFullDataReset" class="bg-rose-600 text-white px-5 py-2 rounded-xl text-xs font-bold shadow">確定一鍵歸零</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function startApp() {
+            if (typeof Vue === 'undefined') {
+                setTimeout(startApp, 100);
+                return;
+            }
+
+            const { createApp, ref, computed, onMounted, watch } = Vue;
+
+            createApp({
+                setup() {
+                    const isUnlocked = ref(false);
+                    const showPasswordModal = ref(false);
+                    const showResetConfirmModal = ref(false);
+                    const inputPassword = ref('');
+                    const resetConfirmPassword = ref('');
+                    const toastMessage = ref('');
+
+                    const startDate = ref('');
+                    const endDate = ref('');
+
+                    const currentTab = ref('scoreDashboard');
+                    const tabs = [
+                        { id: 'scoreDashboard', name: '加分記錄', icon: 'fa-solid fa-star' },
+                        { id: 'routineTracking', name: '常規記錄', icon: 'fa-solid fa-clipboard-check' },
+                        { id: 'groupCompetition', name: '分組競賽', icon: 'fa-solid fa-trophy' },
+                        { id: 'lottery', name: '抽籤看板', icon: 'fa-solid fa-dice' },
+                        { id: 'blueDotTracking', name: '點數記錄', icon: 'fa-solid fa-circle' },
+                        { id: 'rewardStore', name: '兌換獎勵', icon: 'fa-solid fa-store' },
+                        { id: 'arcadeLottery', name: '抽獎兌換', icon: 'fa-solid fa-gamepad' },
+                        { id: 'settings', name: '指定身份與分組', icon: 'fa-solid fa-sliders' }
+                    ];
+
+                    const scoreMode = ref('personal');
+                    const selectedPoints = ref(1);
+                    const groupSelectedPoints = ref(1);
+                    const individualGroupPointSettings = ref([1, 1, 1, 1, 1, 1]);
+                    const selectedStudentSeats = ref([]);
+                    const selectedGroups = ref([]);
+                    const groupScores = ref([0, 0, 0, 0, 0, 0]);
+
+                    const currentWeek = ref(1);
+                    const routineData = ref({});
+                    const settledWeeks = ref([]);
+                    const archivedTermViolations = ref({});
+
+                    // 表格化分組競賽資料庫
+                    const competitionTables = ref([]);
+                    const selectedTableIndex = ref(0);
+                    const showMonthlyAwardModal = ref(false);
+
+                    const lotteryMode = ref('all');
+                    const selectedRoleForLottery = ref('教練');
+                    const selectedGroupForLottery = ref(1);
+                    const lotteryDrawCount = ref(1);
+                    const drawnStudents = ref([]);
+                    const checkedDrawnSeats = ref([]);
+                    const alreadyDrawnSeats = ref([]);
+                    const activeRoleChallengeSeats = ref([]);
+                    const lotteryPointsToAward = ref(1);
+
+                    const batchGiftDotsAmount = ref(1);
+
+                    const rewards = ref([
+                        { id: 1, name: '換座位卡', cost: 5 },
+                        { id: 2, name: '免寫一次作業', cost: 10 },
+                        { id: 3, name: '擔任小幫手', cost: 3 },
+                        { id: 4, name: '精美文具乙份', cost: 8 }
+                    ]);
+                    const showAddRewardModal = ref(false);
+                    const newRewardName = ref('');
+                    const newRewardCost = ref(5);
+
+                    const showStudentRedeemModal = ref(false);
+                    const selectedRewardForRedeem = ref(null);
+                    const redeemingStudentSeat = ref(1);
+                    const redemptionLogs = ref([]);
+
+                    const arcadeGameType = ref('gashapon');
+                    const arcadePlayerSeat = ref(1);
+                    const weightedPrizeList = ref([
+                        { name: '小禮物乙份', count: 5 },
+                        { name: '免寫作業一次', count: 2 },
+                        { name: '換座位卡', count: 3 },
+                        { name: '老師請喝飲料', count: 1 },
+                        { name: '優先選座卡', count: 2 },
+                        { name: '榮譽獎狀', count: 5 }
+                    ]);
+                    const newArcadePrizeName = ref('');
+                    const newArcadePrizeCount = ref(1);
+                    const showArcadeWinModal = ref(false);
+                    const winningPrizeText = ref('');
+
+                    const isPrizePoolUnlocked = ref(false);
+                    const prizePoolPassword = ref('');
+
+                    const verifyPrizePoolPassword = () => {
+                        if (prizePoolPassword.value === '0206') {
+                            isPrizePoolUnlocked.value = true;
+                            prizePoolPassword.value = '';
+                            showToast('獎項設定解鎖成功！');
+                        } else {
+                            showToast('密碼錯誤！請重新輸入');
+                        }
+                    };
+
+                    const gashaponStep = ref(0);
+                    const isGashaponSpinning = ref(false);
+                    const hasGashaponDropped = ref(false);
+                    const droppedBallColor = ref('#f43f5e');
+                    const gashaponBalls = ref(['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']);
+
+                    const isBlindBoxRunning = ref(false);
+                    const activeBlindBoxIndex = ref(0);
+                    const showBlindBoxConfirmModal = ref(false);
+                    const pendingBlindBoxIndex = ref(0);
+
+                    const appleStep = ref(0);
+                    const isAppleFlashing = ref(false);
+                    const activeAppleIndex = ref(0);
+                    const isAppleDropping = ref(false);
+
+                    const initDefaultStudents = (count = 27) => {
+                        const list = [];
+                        const roles = ['教練', '明星', '替補', '黑馬'];
+                        for (let i = 1; i <= count; i++) {
+                            const groupNum = ((i - 1) % 6) + 1;
+                            const role = roles[(i - 1) % 4];
+                            list.push({
+                                seat: i,
+                                name: `學生 ${i}`,
+                                group: groupNum,
+                                role: role,
+                                yellowPoints: 0,
+                                manualBlueDots: 0,
+                                giftedBlueDots: 0
+                            });
+                        }
+                        return list;
+                    };
+
+                    const classSizeInput = ref(27);
+                    const students = ref(initDefaultStudents(27));
+
+                    const calculatedCurrentWeek = computed(() => {
+                        if (!startDate.value) return 1;
+                        const start = new Date(startDate.value);
+                        if (isNaN(start.getTime())) return 1;
+                        
+                        const now = new Date();
+                        start.setHours(0, 0, 0, 0);
+                        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        
+                        const diffTime = today.getTime() - start.getTime();
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays < 0) return 1;
+                        
+                        const weekNum = Math.floor(diffDays / 7) + 1;
+                        return Math.min(Math.max(weekNum, 1), 21);
+                    });
+
+                    const getWeekDateRange = (weekNum) => {
+                        if (!startDate.value) return '';
+                        const start = new Date(startDate.value);
+                        if (isNaN(start.getTime())) return '';
+                        
+                        const wStart = new Date(start);
+                        wStart.setDate(start.getDate() + (weekNum - 1) * 7);
+                        const wEnd = new Date(wStart);
+                        wEnd.setDate(wStart.getDate() + 6);
+                        
+                        const formatMMDD = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+                        return `(${formatMMDD(wStart)} ~ ${formatMMDD(wEnd)})`;
+                    };
+
+                    const syncWeekWithCalendar = () => {
+                        if (startDate.value) {
+                            currentWeek.value = calculatedCurrentWeek.value;
+                            showToast(`已成功同步行事曆定位至：第 ${currentWeek.value} 週！`);
+                        }
+                    };
+
+                    const showToast = (msg) => {
+                        toastMessage.value = msg;
+                        setTimeout(() => { toastMessage.value = ''; }, 3000);
+                    };
+
+                    const checkUnlockGuard = () => {
+                        if (!isUnlocked.value) {
+                            showPasswordModal.value = true;
+                            return false;
+                        }
+                        return true;
+                    };
+
+                    const pendingProtectedAction = ref(null);
+                    const triggerPasswordProtectedAction = (actionCallback) => {
+                        if (!isUnlocked.value) {
+                            pendingProtectedAction.value = actionCallback;
+                            showPasswordModal.value = true;
+                        } else {
+                            actionCallback();
+                        }
+                    };
+
+                    const verifyPassword = () => {
+                        if (inputPassword.value === '0206') {
+                            isUnlocked.value = true;
+                            showPasswordModal.value = false;
+                            inputPassword.value = '';
+                            showToast('教師解鎖成功！');
+                            if (pendingProtectedAction.value) {
+                                pendingProtectedAction.value();
+                                pendingProtectedAction.value = null;
+                            }
+                        } else {
+                            showToast('密碼錯誤！請重新輸入');
+                        }
+                    };
+
+                    const toggleLockStatus = () => {
+                        if (isUnlocked.value) {
+                            isUnlocked.value = false;
+                            isPrizePoolUnlocked.value = false;
+                            prizePoolPassword.value = '';
+                            showToast('已鎖定教師權限與獎項設定。');
+                        } else {
+                            showPasswordModal.value = true;
+                        }
+                    };
+
+                    const openResetConfirmModal = () => {
+                        if (!checkUnlockGuard()) return;
+                        resetConfirmPassword.value = '';
+                        showResetConfirmModal.value = true;
+                    };
+
+                    const executeFullDataReset = () => {
+                        if (resetConfirmPassword.value !== '0206') {
+                            showToast('密碼錯誤，無法執行資料歸零！');
+                            return;
+                        }
+
+                        students.value.forEach(s => {
+                            s.yellowPoints = 0;
+                            s.manualBlueDots = 0;
+                            s.giftedBlueDots = 0;
+                        });
+                        groupScores.value = [0, 0, 0, 0, 0, 0];
+                        competitionTables.value = [createNewTable(1)];
+                        selectedTableIndex.value = 0;
+                        routineData.value = {};
+                        settledWeeks.value = [];
+                        archivedTermViolations.value = {};
+                        redemptionLogs.value = [];
+                        alreadyDrawnSeats.value = [];
+                        activeRoleChallengeSeats.value = [];
+                        
+                        showResetConfirmModal.value = false;
+                        saveStateToLocalStorage();
+                        showToast('全班點數、組別分數與常規數據已成功一鍵歸零！');
+                    };
+
+                    const getYellowDotsCount = (points) => Math.floor((points || 0) / 20);
+                    const getPointsMilestonePercent = (points) => (((points || 0) % 20) / 20) * 100;
+                    
+                    const getPureBlueDotsTotal = (s) => {
+                        if (!s) return 0;
+                        return (s.manualBlueDots || 0) + (s.giftedBlueDots || 0);
+                    };
+
+                    const calculateTotalBlueDots = (s) => {
+                        if (!s) return 0;
+                        return getYellowDotsCount(s.yellowPoints) + getPureBlueDotsTotal(s);
+                    };
+
+                    const calculateRedeemedBlueDots = (seat) => {
+                        if (!seat || !Array.isArray(redemptionLogs.value)) return 0;
+                        return redemptionLogs.value
+                            .filter(log => log && log.seat === seat)
+                            .reduce((acc, curr) => acc + (curr.cost || 0), 0);
+                    };
+
+                    const calculateAvailableBlueDots = (s) => {
+                        if (!s) return 0;
+                        const total = calculateTotalBlueDots(s);
+                        const redeemed = calculateRedeemedBlueDots(s.seat);
+                        return Math.max(0, total - redeemed);
+                    };
+
+                    const calculatePureAvailableBlueDots = (s) => {
+                        if (!s) return 0;
+                        const blueTotal = getPureBlueDotsTotal(s);
+                        const redeemed = calculateRedeemedBlueDots(s.seat);
+                        return Math.max(0, blueTotal - redeemed);
+                    };
+
+                    const roleSortOrder = { '教練': 1, '明星': 2, '替補': 3, '黑馬': 4 };
+                    const getGroupMembers = (groupNum) => {
+                        if (!Array.isArray(students.value)) return [];
+                        return students.value
+                            .filter(s => s && s.group === groupNum)
+                            .sort((a, b) => {
+                                const orderA = roleSortOrder[a.role] || 99;
+                                const orderB = roleSortOrder[b.role] || 99;
+                                if (orderA !== orderB) return orderA - orderB;
+                                return (a.seat || 0) - (b.seat || 0);
+                            });
+                    };
+
+                    const getGroupMemberSeatsText = (groupNum) => {
+                        const members = getGroupMembers(groupNum);
+                        if (!members || members.length === 0) return '無';
+                        return members.map(m => m.seat).join(', ');
+                    };
+
+                    const getRoleStudents = (roleName) => {
+                        if (!Array.isArray(students.value)) return [];
+                        return students.value.filter(s => s && s.role === roleName);
+                    };
+
+                    const toggleStudentSelect = (seat) => {
+                        const idx = selectedStudentSeats.value.indexOf(seat);
+                        if (idx > -1) {
+                            selectedStudentSeats.value.splice(idx, 1);
+                        } else {
+                            selectedStudentSeats.value.push(seat);
+                        }
+                    };
+
+                    const toggleGroupSelect = (gNum) => {
+                        const idx = selectedGroups.value.indexOf(gNum);
+                        if (idx > -1) {
+                            selectedGroups.value.splice(idx, 1);
+                        } else {
+                            selectedGroups.value.push(gNum);
+                        }
+                    };
+
+                    const applyPersonalScore = () => {
+                        if (!checkUnlockGuard()) return;
+                        if (selectedStudentSeats.value.length === 0) {
+                            showToast('請先點選學生卡片！');
+                            return;
+                        }
+                        const pts = selectedPoints.value;
+                        students.value.forEach(s => {
+                            if (selectedStudentSeats.value.includes(s.seat)) {
+                                s.yellowPoints = Math.max(0, s.yellowPoints + pts);
+                            }
+                        });
+                        showToast('太棒了，你已加分！');
+                        selectedStudentSeats.value = [];
+                    };
+
+                    const applyBatchGroupScore = () => {
+                        if (!checkUnlockGuard()) return;
+                        if (selectedGroups.value.length === 0) {
+                            showToast('請點選組別卡片！');
+                            return;
+                        }
+                        const pts = groupSelectedPoints.value;
+                        selectedGroups.value.forEach(gNum => {
+                            groupScores.value[gNum - 1] += pts;
+                        });
+                        showToast(`已成功給選取組別 ${pts > 0 ? '+' : ''}${pts} 分！`);
+                        selectedGroups.value = [];
+                    };
+
+                    const applyIndividualGroupScore = (gNum) => {
+                        if (!checkUnlockGuard()) return;
+                        const pts = individualGroupPointSettings.value[gNum - 1] || 1;
+                        groupScores.value[gNum - 1] += pts;
+                        showToast(`第 ${gNum} 組已給 ${pts > 0 ? '+' : ''}${pts} 分！`);
+                    };
+
+                    const applyClassScore = () => {
+                        if (!checkUnlockGuard()) return;
+                        const pts = selectedPoints.value;
+                        students.value.forEach(s => {
+                            s.yellowPoints = Math.max(0, s.yellowPoints + pts);
+                        });
+                        showToast(`全班已成功加 ${pts} 分！`);
+                    };
+
+                    const getStudentViolation = (seat, week, type) => {
+                        const key = `${seat}_${week}_${type}`;
+                        return routineData.value[key] || 0;
+                    };
+
+                    const updateViolation = (seat, week, type, delta) => {
+                        if (!checkUnlockGuard()) return;
+                        if (settledWeeks.value.includes(week)) {
+                            showToast(`第 ${week} 週已結算完成，資料無法再修改。`);
+                            return;
+                        }
+                        const key = `${seat}_${week}_${type}`;
+                        const current = routineData.value[key] || 0;
+                        const nextVal = Math.max(0, current + delta);
+                        routineData.value[key] = nextVal;
+                    };
+
+                    const getStudentTotalWeekViolations = (seat, week) => {
+                        return getStudentViolation(seat, week, 'late') +
+                               getStudentViolation(seat, week, 'slow') +
+                               getStudentViolation(seat, week, 'nap') +
+                               getStudentViolation(seat, week, 'other');
+                    };
+
+                    const getGroupWeekViolations = (gNum, week) => {
+                        const members = getGroupMembers(gNum);
+                        let total = 0;
+                        members.forEach(m => {
+                            total += getStudentTotalWeekViolations(m.seat, week);
+                        });
+                        return total;
+                    };
+
+                    const calculateGroupRoutinePoints = (gNum, week) => {
+                        const violations = getGroupWeekViolations(gNum, week);
+                        return 15 - violations;
+                    };
+
+                    const awardPersonalZeroViolationBonus = (seat) => {
+                        if (!checkUnlockGuard()) return;
+                        if (settledWeeks.value.includes(currentWeek.value)) {
+                            showToast(`第 ${currentWeek.value} 週已結算完成，無法重複加分。`);
+                            return;
+                        }
+                        const st = students.value.find(s => s.seat === seat);
+                        if (st) {
+                            st.yellowPoints += 3;
+                            showToast(`${seat}號 ${st.name} 當週0違規，個人成功加 3 分！`);
+                        }
+                    };
+
+                    // 當週結算常規得分
+                    const awardAllZeroViolationBonus = () => {
+                        const w = currentWeek.value;
+                        if (settledWeeks.value.includes(w)) {
+                            showToast(`第 ${w} 週已結算過，無法重複加分！`);
+                            return;
+                        }
+
+                        students.value.forEach(s => {
+                            const vCount = getStudentTotalWeekViolations(s.seat, w);
+                            if (vCount === 0) {
+                                s.yellowPoints += 3;
+                            }
+                            archivedTermViolations.value[s.seat] = (archivedTermViolations.value[s.seat] || 0) + vCount;
+                        });
+
+                        for (let g = 1; g <= 6; g++) {
+                            const bonus = calculateGroupRoutinePoints(g, w);
+                            groupScores.value[g - 1] += bonus;
+                        }
+
+                        settledWeeks.value.push(w);
+
+                        students.value.forEach(s => {
+                            ['late', 'slow', 'nap', 'other'].forEach(type => {
+                                const key = `${s.seat}_${w}_${type}`;
+                                routineData.value[key] = 0;
+                            });
+                        });
+
+                        saveStateToLocalStorage();
+                        showToast(`已成功結算第 ${w} 週常規得分！已為個人與各組加分並歸零登記。`);
+
+                        if (w < 21) {
+                            setTimeout(() => {
+                                currentWeek.value = w + 1;
+                                showToast(`已自動為您切換至第 ${w + 1} 週！`);
+                            }, 1200);
+                        }
+                    };
+
+                    // 計算當週各組名次（依分數高低）
+                    const sortedCurrentGroupRanks = computed(() => {
+                        const list = [];
+                        for (let g = 1; g <= 6; g++) {
+                            list.push({
+                                groupNum: g,
+                                score: groupScores.value[g - 1],
+                                members: getGroupMembers(g).map(s => s.seat)
+                            });
+                        }
+                        return list.sort((a, b) => b.score - a.score);
+                    });
+
+                    // 即時看板卡片固定依第 1 組到第 6 組順序排列，並帶入動態試算的名次
+                    const liveGroupCardsOrdered = computed(() => {
+                        const sorted = sortedCurrentGroupRanks.value;
+                        const rankMap = {};
+                        sorted.forEach((item, idx) => {
+                            rankMap[item.groupNum] = idx + 1;
+                        });
+
+                        const list = [];
+                        for (let g = 1; g <= 6; g++) {
+                            list.push({
+                                groupNum: g,
+                                score: groupScores.value[g - 1],
+                                rank: rankMap[g] || g,
+                                members: getGroupMembers(g).map(s => s.seat)
+                            });
+                        }
+                        return list;
+                    });
+
+                    // 建立全新比賽表格 (包含 isAwarded 封存旗標)
+                    const createNewTable = (tableNumber) => {
+                        const groupMembersSnapshot = [];
+                        for (let g = 1; g <= 6; g++) {
+                            groupMembersSnapshot.push(getGroupMembers(g).map(s => s.seat));
+                        }
+                        return {
+                            tableId: 'tbl_' + Date.now() + '_' + tableNumber,
+                            tableNumber: tableNumber,
+                            isClosed: false,
+                            isAwarded: false,
+                            groupMembers: groupMembersSnapshot,
+                            records: []
+                        };
+                    };
+
+                    const getCurrentActiveTable = () => {
+                        if (competitionTables.value.length === 0) {
+                            const t1 = createNewTable(1);
+                            competitionTables.value.push(t1);
+                            return t1;
+                        }
+                        return competitionTables.value[competitionTables.value.length - 1];
+                    };
+
+                    // 將歷屆表格反轉排列（最新表格排在最上方）
+                    const reversedCompetitionTables = computed(() => {
+                        if (!Array.isArray(competitionTables.value)) return [];
+                        return [...competitionTables.value].reverse();
+                    });
+
+                    const archiveWeeklyCompetition = () => {
+                        if (!checkUnlockGuard()) return;
+
+                        const curTable = getCurrentActiveTable();
+                        const currentScores = [...groupScores.value];
+                        const ranks = [0, 0, 0, 0, 0, 0];
+                        
+                        const sorted = sortedCurrentGroupRanks.value;
+                        sorted.forEach((item, idx) => {
+                            ranks[item.groupNum - 1] = idx + 1;
+                        });
+
+                        const newRecord = {
+                            date: new Date().toLocaleDateString(),
+                            scores: currentScores,
+                            ranks: ranks
+                        };
+
+                        curTable.records.push(newRecord);
+                        saveStateToLocalStorage();
+                        showToast(`已成功將本週成績封存至【表格 ${curTable.tableNumber}】！`);
+                    };
+
+                    const resetGroupScores = () => {
+                        if (!checkUnlockGuard()) return;
+                        groupScores.value = [0, 0, 0, 0, 0, 0];
+                        showToast('當週分組成績已歸零！');
+                    };
+
+                    const executeSeatChangeAndNewTable = () => {
+                        const curTable = getCurrentActiveTable();
+                        curTable.isClosed = true;
+
+                        groupScores.value = [0, 0, 0, 0, 0, 0];
+                        const nextTableNumber = competitionTables.value.length + 1;
+                        const newTbl = createNewTable(nextTableNumber);
+                        competitionTables.value.push(newTbl);
+                        selectedTableIndex.value = competitionTables.value.length - 1;
+
+                        saveStateToLocalStorage();
+                        showToast(`【表格 ${curTable.tableNumber}】已正式結案！已建立【表格 ${nextTableNumber}】等待新座位分組比賽。`);
+                    };
+
+                    const getTableGroupTotalScore = (table, gNum) => {
+                        if (!table || !table.records) return 0;
+                        return table.records.reduce((acc, r) => acc + (r.scores[gNum - 1] || 0), 0);
+                    };
+
+                    const currentSelectedTable = computed(() => {
+                        if (competitionTables.value.length === 0) return createNewTable(1);
+                        const idx = Math.min(Math.max(selectedTableIndex.value, 0), competitionTables.value.length - 1);
+                        return competitionTables.value[idx] || competitionTables.value[0];
+                    });
+
+                    // 依據所選表格計算月冠軍獎勵，並依名次由高至低尊榮排序
+                    const calculatedMonthlyAwards = computed(() => {
+                        const results = [];
+                        const table = currentSelectedTable.value;
+                        if (!table) return results;
+
+                        for (let g = 1; g <= 6; g++) {
+                            let totalScore = getTableGroupTotalScore(table, g);
+                            let bonusPoints = 0;
+                            let candyCount = 0;
+
+                            table.records.forEach(rec => {
+                                const rank = rec.ranks[g - 1];
+                                if (rank === 1) {
+                                    bonusPoints += 3;
+                                    candyCount += 1;
+                                } else if (rank === 2) {
+                                    bonusPoints += 2;
+                                    candyCount += 1;
+                                } else if (rank === 3) {
+                                    bonusPoints += 1;
+                                    candyCount += 1;
+                                }
+                            });
+
+                            const memberSeats = (table.groupMembers && table.groupMembers[g - 1]) 
+                                ? table.groupMembers[g - 1] 
+                                : getGroupMembers(g).map(s => s.seat);
+
+                            results.push({
+                                groupNum: g,
+                                totalScore,
+                                bonusPoints,
+                                candyCount,
+                                members: memberSeats
+                            });
+                        }
+
+                        results.sort((a, b) => b.totalScore - a.totalScore);
+                        results.forEach((item, idx) => {
+                            item.finalRank = idx + 1;
+                        });
+
+                        return results;
+                    });
+
+                    // 發放月冠軍獎勵後，直接封存鎖定該表格
+                    const applyMonthlyAwards = () => {
+                        if (!checkUnlockGuard()) return;
+                        const table = currentSelectedTable.value;
+                        if (table.isAwarded) {
+                            showToast(`【表格 ${table.tableNumber}】月冠軍獎勵已發放過，無法重複發放！`);
+                            return;
+                        }
+                        if (table.records.length === 0) {
+                            showToast(`【表格 ${table.tableNumber}】尚未封存任何週次成績，無法發放獎勵！`);
+                            return;
+                        }
+
+                        calculatedMonthlyAwards.value.forEach(gAward => {
+                            gAward.members.forEach(seat => {
+                                const st = students.value.find(s => s.seat === seat);
+                                if (st) {
+                                    st.yellowPoints += gAward.bonusPoints;
+                                }
+                            });
+                        });
+
+                        table.isAwarded = true;
+                        saveStateToLocalStorage();
+                        showMonthlyAwardModal.value = false;
+                        showToast(`已成功為【表格 ${table.tableNumber}】所屬組員發放月冠軍獎勵並正式封存！`);
+                    };
+
+                    // 解除當前選定表格的月冠軍封存 (救援誤按機制)
+                    const unsealCurrentTableAward = () => {
+                        const table = currentSelectedTable.value;
+                        if (!table.isAwarded) return;
+
+                        calculatedMonthlyAwards.value.forEach(gAward => {
+                            gAward.members.forEach(seat => {
+                                const st = students.value.find(s => s.seat === seat);
+                                if (st) {
+                                    st.yellowPoints = Math.max(0, st.yellowPoints - gAward.bonusPoints);
+                                }
+                            });
+                        });
+
+                        table.isAwarded = false;
+                        saveStateToLocalStorage();
+                        showToast(`已成功解除【表格 ${table.tableNumber}】的頒獎封存！可繼續封存週次成績並重新頒獎。`);
+                    };
+
+                    const getGroupRoleStudents = (groupNum, roleName) => {
+                        if (!Array.isArray(students.value)) return [];
+                        return students.value.filter(s => s && s.group === groupNum && s.role === roleName);
+                    };
+
+                    const initRoleChallenge = () => {
+                        const challengeSeats = [];
+                        for (let g = 1; g <= 6; g++) {
+                            const gRoleSts = getGroupRoleStudents(g, selectedRoleForLottery.value);
+                            if (gRoleSts.length > 0) {
+                                challengeSeats.push(gRoleSts[0].seat);
+                            }
+                        }
+                        activeRoleChallengeSeats.value = challengeSeats;
+                        showToast(`已載入【${selectedRoleForLottery.value}】挑戰名單！`);
+                    };
+
+                    const toggleRoleChallengeSeat = (seat) => {
+                        const idx = activeRoleChallengeSeats.value.indexOf(seat);
+                        if (idx > -1) {
+                            activeRoleChallengeSeats.value.splice(idx, 1);
+                        } else {
+                            activeRoleChallengeSeats.value.push(seat);
+                        }
+                    };
+
+                    const applyRoleChallengeScore = (target) => {
+                        if (!checkUnlockGuard()) return;
+                        if (activeRoleChallengeSeats.value.length === 0) {
+                            showToast('請選取參賽學生！');
+                            return;
+                        }
+
+                        const pts = lotteryPointsToAward.value;
+                        students.value.forEach(s => {
+                            if (activeRoleChallengeSeats.value.includes(s.seat)) {
+                                s.yellowPoints += pts;
+                                if (target === 'both') {
+                                    groupScores.value[s.group - 1] += pts;
+                                }
+                            }
+                        });
+
+                        showToast(`已成功給挑戰參賽學生 ${target === 'both' ? '個人與組別同步' : '個人'} 加 ${pts} 分！`);
+                    };
+
+                    const drawLottery = () => {
+                        let pool = [...students.value].filter(s => s && !alreadyDrawnSeats.value.includes(s.seat));
+
+                        if (lotteryMode.value === 'role') {
+                            pool = pool.filter(s => s.role === selectedRoleForLottery.value);
+                        } else if (lotteryMode.value === 'group') {
+                            pool = pool.filter(s => s.group === selectedGroupForLottery.value);
+                        } else if (lotteryMode.value === 'onePerGroup') {
+                            const result = [];
+                            for (let g = 1; g <= 6; g++) {
+                                const gMembers = getGroupMembers(g).filter(s => !alreadyDrawnSeats.value.includes(s.seat));
+                                if (gMembers.length > 0) {
+                                    const picked = gMembers[Math.floor(Math.random() * gMembers.length)];
+                                    result.push(picked);
+                                }
+                            }
+                            if (result.length === 0) {
+                                showToast('該條件下的學生皆已抽過！請點擊「重置籤池」。');
+                                return;
+                            }
+                            drawnStudents.value = result;
+                            checkedDrawnSeats.value = result.map(x => x.seat);
+                            alreadyDrawnSeats.value.push(...result.map(x => x.seat));
+                            return;
+                        }
+
+                        if (pool.length === 0) {
+                            showToast('符合條件的學生皆已抽過！請點擊「重置籤池」開啟新一輪。');
+                            return;
+                        }
+
+                        const drawCount = Math.min(lotteryDrawCount.value, pool.length);
+                        const shuffled = [...pool].sort(() => 0.5 - Math.random());
+                        const pickedList = shuffled.slice(0, drawCount);
+
+                        drawnStudents.value = pickedList;
+                        checkedDrawnSeats.value = pickedList.map(x => x.seat);
+                        alreadyDrawnSeats.value.push(...pickedList.map(x => x.seat));
+                    };
+
+                    const resetLottery = () => {
+                        alreadyDrawnSeats.value = [];
+                        drawnStudents.value = [];
+                        checkedDrawnSeats.value = [];
+                        showToast('籤池已成功重置！');
+                    };
+
+                    const toggleDrawnStudentCheck = (seat) => {
+                        const idx = checkedDrawnSeats.value.indexOf(seat);
+                        if (idx > -1) {
+                            checkedDrawnSeats.value.splice(idx, 1);
+                        } else {
+                            checkedDrawnSeats.value.push(seat);
+                        }
+                    };
+
+                    const applyLotteryScore = (target) => {
+                        if (!checkUnlockGuard()) return;
+                        if (checkedDrawnSeats.value.length === 0) {
+                            showToast('請勾選答對學生！');
+                            return;
+                        }
+
+                        const pts = lotteryPointsToAward.value;
+                        students.value.forEach(s => {
+                            if (checkedDrawnSeats.value.includes(s.seat)) {
+                                s.yellowPoints += pts;
+                                if (target === 'both') {
+                                    groupScores.value[s.group - 1] += pts;
+                                }
+                            }
+                        });
+
+                        showToast(`已成功給勾選學生 ${target === 'both' ? '個人與組別同步' : '個人'} 加 ${pts} 分！`);
+                    };
+
+                    const applyBatchGiftDots = () => {
+                        if (!checkUnlockGuard()) return;
+                        const pts = batchGiftDotsAmount.value;
+                        students.value.forEach(s => {
+                            s.giftedBlueDots = pts;
+                        });
+                        showToast(`已全班贈送 ${pts} 個藍點！`);
+                    };
+
+                    const consolidateGiftedBlueDots = () => {
+                        if (!checkUnlockGuard()) return;
+                        students.value.forEach(s => {
+                            if (s.giftedBlueDots > 0) {
+                                s.manualBlueDots = (s.manualBlueDots || 0) + s.giftedBlueDots;
+                                s.giftedBlueDots = 0;
+                            }
+                        });
+                        showToast('全班贈送藍點已成功加總歸零！');
+                    };
+
+                    const sortedRewards = computed(() => {
+                        if (!Array.isArray(rewards.value)) return [];
+                        return [...rewards.value].sort((a, b) => a.cost - b.cost);
+                    });
+
+                    const addNewRewardItem = () => {
+                        if (!checkUnlockGuard()) return;
+                        if (!newRewardName.value.trim()) {
+                            showToast('請輸入獎勵名稱！');
+                            return;
+                        }
+                        rewards.value.push({
+                            id: Date.now(),
+                            name: newRewardName.value.trim(),
+                            cost: newRewardCost.value || 1
+                        });
+                        newRewardName.value = '';
+                        newRewardCost.value = 5;
+                        showAddRewardModal.value = false;
+                        showToast('新增獎勵成功！');
+                    };
+
+                    const removeRewardItem = (rewardId) => {
+                        if (!checkUnlockGuard()) return;
+                        rewards.value = rewards.value.filter(r => r.id !== rewardId);
+                        showToast('已成功刪除該獎勵項目！');
+                    };
+
+                    const openStudentRedeemModal = (reward) => {
+                        selectedRewardForRedeem.value = reward;
+                        showStudentRedeemModal.value = true;
+                    };
+
+                    const confirmStudentRedeem = () => {
+                        if (!checkUnlockGuard()) return;
+                        const st = students.value.find(s => s.seat === redeemingStudentSeat.value);
+                        const r = selectedRewardForRedeem.value;
+                        if (!st || !r) return;
+
+                        const avail = calculateAvailableBlueDots(st);
+                        if (avail < r.cost) {
+                            showToast(`該學生可用點數不足！(需要 ${r.cost} 點，目前僅有 ${avail} 點)`);
+                            return;
+                        }
+
+                        redemptionLogs.value.unshift({
+                            seat: st.seat,
+                            studentName: st.name,
+                            rewardName: r.name,
+                            cost: r.cost,
+                            date: new Date().toLocaleString()
+                        });
+
+                        showStudentRedeemModal.value = false;
+                        showToast(`${st.name} 成功兌換 ${r.name}！`);
+                    };
+
+                    const drawPrizeFromWeightedPool = () => {
+                        if (!Array.isArray(weightedPrizeList.value)) return '榮譽獎狀 (特別加碼)';
+                        const available = weightedPrizeList.value.filter(p => p && p.count > 0);
+                        if (available.length === 0) {
+                            return '榮譽獎狀 (特別加碼)';
+                        }
+
+                        for (let i = available.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [available[i], available[j]] = [available[j], available[i]];
+                        }
+
+                        const totalCount = available.reduce((acc, p) => acc + p.count, 0);
+                        let rand = Math.floor(Math.random() * totalCount);
+                        for (let p of available) {
+                            if (rand < p.count) {
+                                p.count -= 1;
+                                return p.name;
+                            }
+                            rand -= p.count;
+                        }
+                        return available[0].name;
+                    };
+
+                    const addArcadePrizeItem = () => {
+                        if (!newArcadePrizeName.value.trim()) return;
+                        weightedPrizeList.value.push({
+                            name: newArcadePrizeName.value.trim(),
+                            count: newArcadePrizeCount.value || 1
+                        });
+                        newArcadePrizeName.value = '';
+                        newArcadePrizeCount.value = 1;
+                        showToast('新增項目成功！');
+                    };
+
+                    const removeArcadePrizeItem = (idx) => {
+                        weightedPrizeList.value.splice(idx, 1);
+                    };
+
+                    const triggerGashaponAction = () => {
+                        if (!checkUnlockGuard()) return;
+                        const st = students.value.find(s => s.seat === arcadePlayerSeat.value);
+                        if (!st || calculateAvailableBlueDots(st) < 1) {
+                            showToast('玩家可用點數不足 1 點！');
+                            return;
+                        }
+
+                        if (gashaponStep.value === 0 || gashaponStep.value === 2) {
+                            redemptionLogs.value.unshift({
+                                seat: st.seat,
+                                studentName: st.name,
+                                rewardName: '扭蛋機抽獎',
+                                cost: 1,
+                                date: new Date().toLocaleString()
+                            });
+
+                            gashaponStep.value = 1;
+                            isGashaponSpinning.value = true;
+                            hasGashaponDropped.value = false;
+                            showToast('扭蛋機滾動攪拌中！請再按一次確定開獎');
+                        } else if (gashaponStep.value === 1) {
+                            isGashaponSpinning.value = false;
+                            hasGashaponDropped.value = true;
+                            droppedBallColor.value = gashaponBalls.value[Math.floor(Math.random() * gashaponBalls.value.length)];
+                            gashaponStep.value = 2;
+
+                            setTimeout(() => {
+                                winningPrizeText.value = drawPrizeFromWeightedPool();
+                                showArcadeWinModal.value = true;
+                            }, 700);
+                        }
+                    };
+
+                    const getBlindBoxColor = (boxNum) => {
+                        const colors = ['#f43f5e', '#ec4899', '#d946ef', '#a855f7', '#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9', '#06b6d4', '#14b8a6'];
+                        return colors[(boxNum - 1) % colors.length];
+                    };
+
+                    const startBlindBoxMarquee = () => {
+                        isBlindBoxRunning.value = true;
+                        let count = 0;
+                        const interval = setInterval(() => {
+                            count++;
+                            activeBlindBoxIndex.value = (count % 16) + 1;
+                            if (count >= 24) {
+                                clearInterval(interval);
+                                isBlindBoxRunning.value = false;
+                            }
+                        }, 100);
+                    };
+
+                    const selectBlindBox = (boxNum) => {
+                        pendingBlindBoxIndex.value = boxNum;
+                        showBlindBoxConfirmModal.value = true;
+                    };
+
+                    const confirmBlindBoxReveal = () => {
+                        if (!checkUnlockGuard()) return;
+                        const st = students.value.find(s => s.seat === arcadePlayerSeat.value);
+                        if (!st || calculateAvailableBlueDots(st) < 1) {
+                            showToast('玩家可用點數不足 1 點！');
+                            return;
+                        }
+
+                        redemptionLogs.value.unshift({
+                            seat: st.seat,
+                            studentName: st.name,
+                            rewardName: '盲盒牆抽獎',
+                            cost: 1,
+                            date: new Date().toLocaleString()
+                        });
+
+                        showBlindBoxConfirmModal.value = false;
+                        activeBlindBoxIndex.value = pendingBlindBoxIndex.value;
+
+                        winningPrizeText.value = drawPrizeFromWeightedPool();
+                        showArcadeWinModal.value = true;
+                    };
+
+                    const triggerAppleAction = () => {
+                        if (!checkUnlockGuard()) return;
+                        const st = students.value.find(s => s.seat === arcadePlayerSeat.value);
+                        if (!st || calculateAvailableBlueDots(st) < 1) {
+                            showToast('玩家可用點數不足 1 點！');
+                            return;
+                        }
+
+                        if (appleStep.value === 0 || appleStep.value === 2) {
+                            redemptionLogs.value.unshift({
+                                seat: st.seat,
+                                studentName: st.name,
+                                rewardName: '歡樂蘋果樹抽獎',
+                                cost: 1,
+                                date: new Date().toLocaleString()
+                            });
+
+                            appleStep.value = 1;
+                            isAppleFlashing.value = true;
+                            isAppleDropping.value = false;
+                            
+                            let count = 0;
+                            const interval = setInterval(() => {
+                                count++;
+                                activeAppleIndex.value = (count % 16) + 1;
+                                if (!isAppleFlashing.value) {
+                                    clearInterval(interval);
+                                }
+                            }, 120);
+
+                            showToast('蘋果樹閃耀選擇中！請再點擊一次摘下蘋果');
+                        } else if (appleStep.value === 1) {
+                            isAppleFlashing.value = false;
+                            isAppleDropping.value = true;
+                            appleStep.value = 2;
+
+                            setTimeout(() => {
+                                winningPrizeText.value = drawPrizeFromWeightedPool();
+                                showArcadeWinModal.value = true;
+                            }, 850);
+                        }
+                    };
+
+                    const selectApple = (aNum) => {
+                        activeAppleIndex.value = aNum;
+                    };
+
+                    const getRoleBgStyle = (roleName) => {
+                        switch(roleName) {
+                            case '教練': return 'border-red-300 bg-red-50 text-red-900';
+                            case '明星': return 'border-amber-300 bg-amber-50 text-amber-900';
+                            case '替補': return 'border-emerald-300 bg-emerald-50 text-emerald-900';
+                            case '黑馬': return 'border-blue-300 bg-blue-50 text-blue-900';
+                            default: return 'border-slate-200 bg-slate-50 text-slate-800';
+                        }
+                    };
+
+                    const getRoleSeatBadgeColor = (roleName) => {
+                        switch(roleName) {
+                            case '教練': return 'bg-red-500 text-white border-red-600 shadow-sm';
+                            case '明星': return 'bg-amber-400 text-amber-950 border-amber-500 shadow-sm';
+                            case '替補': return 'bg-emerald-500 text-white border-emerald-600 shadow-sm';
+                            case '黑馬': return 'bg-blue-500 text-white border-blue-600 shadow-sm';
+                            default: return 'bg-white border-slate-300 text-slate-800';
+                        }
+                    };
+
+                    const handleDragStart = (evt, seat) => {
+                        evt.dataTransfer.setData('text/plain', seat);
+                    };
+
+                    const handleRoleDrop = (evt, roleName) => {
+                        const seat = parseInt(evt.dataTransfer.getData('text/plain'));
+                        const st = students.value.find(s => s.seat === seat);
+                        if (st) {
+                            st.role = roleName;
+                        }
+                    };
+
+                    const handleGroupDrop = (evt, gNum) => {
+                        const seat = parseInt(evt.dataTransfer.getData('text/plain'));
+                        const st = students.value.find(s => s.seat === seat);
+                        if (st) {
+                            st.group = gNum;
+                        }
+                    };
+
+                    const applyClassSizeChange = () => {
+                        if (!checkUnlockGuard()) return;
+                        students.value = initDefaultStudents(classSizeInput.value);
+                        showToast('已重新設定班級人數！');
+                    };
+
+                    const saveClassSettings = () => {
+                        if (!checkUnlockGuard()) return;
+                        saveStateToLocalStorage();
+                        showToast('名冊已成功永久儲存！');
+                    };
+
+                    const saveStateToLocalStorage = () => {
+                        try {
+                            const state = {
+                                classSizeInput: classSizeInput.value,
+                                startDate: startDate.value,
+                                endDate: endDate.value,
+                                students: students.value,
+                                groupScores: groupScores.value,
+                                competitionTables: competitionTables.value,
+                                routineData: routineData.value,
+                                settledWeeks: settledWeeks.value,
+                                archivedTermViolations: archivedTermViolations.value,
+                                rewards: rewards.value,
+                                redemptionLogs: redemptionLogs.value,
+                                weightedPrizeList: weightedPrizeList.value,
+                                alreadyDrawnSeats: alreadyDrawnSeats.value
+                            };
+                            localStorage.setItem('classroom_management_app_data', JSON.stringify(state));
+                        } catch (e) {
+                            console.error('Save State Error:', e);
+                        }
+                    };
+
+                    const loadStateFromLocalStorage = () => {
+                        try {
+                            const saved = localStorage.getItem('classroom_management_app_data');
+                            if (saved) {
+                                const parsed = JSON.parse(saved);
+                                if (parsed.students && Array.isArray(parsed.students)) students.value = parsed.students;
+                                if (parsed.classSizeInput) classSizeInput.value = parsed.classSizeInput;
+                                if (parsed.startDate) startDate.value = parsed.startDate;
+                                if (parsed.endDate) endDate.value = parsed.endDate;
+                                if (parsed.groupScores && Array.isArray(parsed.groupScores)) groupScores.value = parsed.groupScores;
+                                if (parsed.competitionTables && Array.isArray(parsed.competitionTables)) {
+                                    competitionTables.value = parsed.competitionTables;
+                                }
+                                if (parsed.routineData) routineData.value = parsed.routineData;
+                                if (parsed.settledWeeks && Array.isArray(parsed.settledWeeks)) settledWeeks.value = parsed.settledWeeks;
+                                if (parsed.archivedTermViolations) archivedTermViolations.value = parsed.archivedTermViolations;
+                                if (parsed.rewards && Array.isArray(parsed.rewards)) rewards.value = parsed.rewards;
+                                if (parsed.redemptionLogs && Array.isArray(parsed.redemptionLogs)) redemptionLogs.value = parsed.redemptionLogs;
+                                if (parsed.weightedPrizeList && Array.isArray(parsed.weightedPrizeList)) weightedPrizeList.value = parsed.weightedPrizeList;
+                                if (parsed.alreadyDrawnSeats && Array.isArray(parsed.alreadyDrawnSeats)) alreadyDrawnSeats.value = parsed.alreadyDrawnSeats;
+                            } else {
+                                students.value = initDefaultStudents(27);
+                            }
+                        } catch (e) {
+                            console.error('Load State Error:', e);
+                            students.value = initDefaultStudents(27);
+                        }
+
+                        if (!students.value || !Array.isArray(students.value) || students.value.length === 0) {
+                            students.value = initDefaultStudents(27);
+                        }
+
+                        students.value.forEach(s => {
+                            if (s.manualBlueDots === undefined) s.manualBlueDots = 0;
+                            if (s.giftedBlueDots === undefined) s.giftedBlueDots = 0;
+                            if (s.yellowPoints === undefined) s.yellowPoints = 0;
+                            if (!s.role) s.role = '替補';
+                            if (!s.group) s.group = 1;
+                        });
+
+                        if (!groupScores.value || !Array.isArray(groupScores.value) || groupScores.value.length < 6) {
+                            groupScores.value = [0, 0, 0, 0, 0, 0];
+                        }
+
+                        if (competitionTables.value.length === 0) {
+                            competitionTables.value.push(createNewTable(1));
+                        }
+                        selectedTableIndex.value = competitionTables.value.length - 1;
+
+                        if (startDate.value) {
+                            currentWeek.value = calculatedCurrentWeek.value;
+                        }
+                    };
+
+                    const exportBackupJSON = () => {
+                        const state = {
+                            classSizeInput: classSizeInput.value,
+                            startDate: startDate.value,
+                            endDate: endDate.value,
+                            students: students.value,
+                            groupScores: groupScores.value,
+                            competitionTables: competitionTables.value,
+                            routineData: routineData.value,
+                            settledWeeks: settledWeeks.value,
+                            archivedTermViolations: archivedTermViolations.value,
+                            rewards: rewards.value,
+                            redemptionLogs: redemptionLogs.value,
+                            weightedPrizeList: weightedPrizeList.value,
+                            alreadyDrawnSeats: alreadyDrawnSeats.value
+                        };
+                        const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `班級常規數據備份_${new Date().toISOString().slice(0, 10)}.json`;
+                        a.click();
+                    };
+
+                    const importBackupJSON = (evt) => {
+                        const file = evt.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            try {
+                                const parsed = JSON.parse(e.target.result);
+                                if (parsed.students) students.value = parsed.students;
+                                if (parsed.classSizeInput) classSizeInput.value = parsed.classSizeInput;
+                                if (parsed.startDate) startDate.value = parsed.startDate;
+                                if (parsed.endDate) endDate.value = parsed.endDate;
+                                if (parsed.groupScores) groupScores.value = parsed.groupScores;
+                                if (parsed.competitionTables) competitionTables.value = parsed.competitionTables;
+                                if (parsed.routineData) routineData.value = parsed.routineData;
+                                if (parsed.settledWeeks) settledWeeks.value = parsed.settledWeeks;
+                                if (parsed.archivedTermViolations) archivedTermViolations.value = parsed.archivedTermViolations;
+                                if (parsed.rewards) rewards.value = parsed.rewards;
+                                if (parsed.alreadyDrawnSeats) alreadyDrawnSeats.value = parsed.alreadyDrawnSeats;
+                                saveStateToLocalStorage();
+                                
+                                if (startDate.value) {
+                                    currentWeek.value = calculatedCurrentWeek.value;
+                                }
+
+                                showToast('已成功從備份檔完整還原所有資料！');
+                            } catch (err) {
+                                showToast('備份檔解析失敗！請確認格式是否正確。');
+                            }
+                        };
+                        reader.readAsText(file);
+                    };
+
+                    const exportCSVReport = () => {
+                        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+                        csvContent += "座號,姓名,組別,身份,個人黃點總分,黃點個數,手動藍點,總點數,贈送點數,已兌換點數,可兌換點數,全學期累計違規總數\n";
+                        students.value.forEach(s => {
+                            let totalViolations = archivedTermViolations.value[s.seat] || 0;
+                            for (let w = 1; w <= 21; w++) {
+                                totalViolations += getStudentTotalWeekViolations(s.seat, w);
+                            }
+                            csvContent += `${s.seat},${s.name},${s.group},${s.role},${s.yellowPoints},${getYellowDotsCount(s.yellowPoints)},${s.manualBlueDots || 0},${calculateTotalBlueDots(s)},${s.giftedBlueDots || 0},${calculateRedeemedBlueDots(s.seat)},${calculateAvailableBlueDots(s)},${totalViolations}\n`;
+                        });
+
+                        const encodedUri = encodeURI(csvContent);
+                        const link = document.createElement("a");
+                        link.setAttribute("href", encodedUri);
+                        link.setAttribute("download", `21週全學期常規與成績報表_${new Date().toISOString().slice(0, 10)}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    };
+
+                    watch([students, startDate, endDate, groupScores, competitionTables, routineData, settledWeeks, archivedTermViolations, rewards, redemptionLogs, weightedPrizeList, alreadyDrawnSeats], () => {
+                        saveStateToLocalStorage();
+                    }, { deep: true });
+
+                    onMounted(() => {
+                        loadStateFromLocalStorage();
+                    });
+
+                    return {
+                        isUnlocked, showPasswordModal, showResetConfirmModal, inputPassword, resetConfirmPassword, toastMessage, toggleLockStatus, verifyPassword,
+                        startDate, endDate, calculatedCurrentWeek, getWeekDateRange, syncWeekWithCalendar,
+                        triggerPasswordProtectedAction, currentTab, tabs, scoreMode, selectedPoints, groupSelectedPoints, individualGroupPointSettings, selectedStudentSeats, selectedGroups, groupScores,
+                        toggleStudentSelect, toggleGroupSelect, applyPersonalScore, applyBatchGroupScore, applyIndividualGroupScore, applyClassScore, getGroupMembers, getGroupMemberSeatsText, getYellowDotsCount, getPointsMilestonePercent, getPureBlueDotsTotal, calculateTotalBlueDots, calculateRedeemedBlueDots, calculateAvailableBlueDots, calculatePureAvailableBlueDots,
+                        currentWeek, settledWeeks, getStudentViolation, updateViolation, getStudentTotalWeekViolations, getGroupWeekViolations, calculateGroupRoutinePoints,
+                        awardPersonalZeroViolationBonus, awardAllZeroViolationBonus,
+                        competitionTables, reversedCompetitionTables, selectedTableIndex, currentSelectedTable, getTableGroupTotalScore, sortedCurrentGroupRanks, liveGroupCardsOrdered, archiveWeeklyCompetition, resetGroupScores, executeSeatChangeAndNewTable, showMonthlyAwardModal, calculatedMonthlyAwards, applyMonthlyAwards, unsealCurrentTableAward,
+                        lotteryMode, selectedRoleForLottery, selectedGroupForLottery, lotteryDrawCount, drawnStudents, checkedDrawnSeats, activeRoleChallengeSeats, lotteryPointsToAward, drawLottery, resetLottery, toggleDrawnStudentCheck, applyLotteryScore,
+                        getGroupRoleStudents, initRoleChallenge, toggleRoleChallengeSeat, applyRoleChallengeScore,
+                        batchGiftDotsAmount, applyBatchGiftDots, consolidateGiftedBlueDots,
+                        students, sortedRewards, showAddRewardModal, newRewardName, newRewardCost, addNewRewardItem, removeRewardItem, showStudentRedeemModal, selectedRewardForRedeem, redeemingStudentSeat, redemptionLogs, openStudentRedeemModal, confirmStudentRedeem,
+                        arcadeGameType, arcadePlayerSeat, weightedPrizeList, newArcadePrizeName, newArcadePrizeCount, addArcadePrizeItem, removeArcadePrizeItem, showArcadeWinModal, winningPrizeText,
+                        isPrizePoolUnlocked, prizePoolPassword, verifyPrizePoolPassword,
+                        gashaponStep, isGashaponSpinning, hasGashaponDropped, droppedBallColor, gashaponBalls, triggerGashaponAction,
+                        isBlindBoxRunning, activeBlindBoxIndex, showBlindBoxConfirmModal, pendingBlindBoxIndex, getBlindBoxColor, startBlindBoxMarquee, selectBlindBox, confirmBlindBoxReveal,
+                        appleStep, isAppleFlashing, activeAppleIndex, isAppleDropping, triggerAppleAction, selectApple,
+                        handleDragStart, handleRoleDrop, handleGroupDrop, getRoleStudents, getRoleBgStyle, getRoleSeatBadgeColor,
+                        classSizeInput, applyClassSizeChange, saveClassSettings, openResetConfirmModal, executeFullDataReset, exportBackupJSON, importBackupJSON, exportCSVReport
+                    };
+                }
+            }).mount('#app');
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startApp);
+        } else {
+            startApp();
+        }
+    </script>
+</body>
+</html>
