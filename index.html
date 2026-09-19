@@ -350,7 +350,7 @@
                                     <th class="p-2 border border-slate-200 bg-blue-50 text-blue-800">0違規週數</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody class="divide-y divide-slate-200 font-bold">
                                 <tr v-for="s in students" :key="'semTable'+s.seat" class="hover:bg-slate-50">
                                     <td class="p-1.5 border border-slate-200 font-bold sticky left-0 bg-white">{{ s.seat }}</td>
                                     <td class="p-1.5 border border-slate-200 font-black sticky left-12 bg-white">{{ s.name }}</td>
@@ -372,7 +372,7 @@
                 </div>
             </section>
 
-            <!-- 3. 分組競賽排行榜 (🌟 修正：封存後即刻歸零、未重組前成績納入同一期大表 🌟) -->
+            <!-- 3. 分組競賽排行榜 -->
             <section v-if="currentTab === 'groupCompetition'" class="space-y-4">
                 <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
                     <div>
@@ -388,40 +388,50 @@
                     </div>
 
                     <div class="flex items-center space-x-2 flex-wrap gap-2">
-                        <!-- 🌟 封存成績按鈕 (封存後成績歸零) 🌟 -->
                         <button @click="archiveWeeklyCompetition" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
                             <i class="fa-solid fa-box-archive"></i> 封存第 {{ currentWeek }} 週成績 (並歸零即時成績)
                         </button>
-                        <!-- 🌟 重新分組按鈕 (只有按這個才結束當期、往下移並開啟新期) 🌟 -->
                         <button @click="openConfirmResetCycleModal" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
                             <i class="fa-solid fa-arrows-rotate"></i> 🔄 重新分組 (結束第 {{ activeCycleId }} 期並開新期)
                         </button>
                     </div>
                 </div>
 
-                <!-- 當前週即時卡片 -->
+                <!-- 當前週即時卡片 (🌟 修正：名次在分數旁邊，皇冠在分數下面 🌟) -->
                 <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
                     <div v-for="g in orderedCurrentGroupRanks" :key="'compRankG'+g.groupNum"
                         :class="['bg-white rounded-2xl transition shadow-sm text-center relative overflow-hidden flex flex-col justify-between',
                             g.rank <= 3 ? 'border-4 border-rose-500 ring-4 ring-rose-100/60 shadow-md' : 'border-2 border-indigo-100']">
                         <div>
-                            <div :class="['absolute top-0 left-0 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-br-lg z-10',
-                                g.rank === 1 ? 'bg-amber-500' : g.rank === 2 ? 'bg-slate-500' : g.rank === 3 ? 'bg-amber-700' : 'bg-slate-700']">
-                                {{ g.isTie ? '並列第 ' + g.rank + ' 名' : '第 ' + g.rank + ' 名' }}
+                            <div class="p-3 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                                <h3 class="text-sm font-black text-slate-800">第 {{ g.groupNum }} 組</h3>
+                                <span :class="['text-[10px] font-extrabold px-2 py-0.5 rounded-full text-white',
+                                    g.rank === 1 ? 'bg-amber-500' : g.rank === 2 ? 'bg-slate-500' : g.rank === 3 ? 'bg-amber-700' : 'bg-slate-400']">
+                                    {{ g.isTie ? '並列第 ' + g.rank + ' 名' : '第 ' + g.rank + ' 名' }}
+                                </span>
                             </div>
 
-                            <div class="p-4 pt-6">
-                                <h3 class="text-sm font-black text-slate-800">第 {{ g.groupNum }} 組</h3>
-                                <div class="h-6 flex items-center justify-center text-amber-500 text-sm mt-1">
-                                    <span v-if="g.rank === 1">👑👑👑</span>
-                                    <span v-else-if="g.rank === 2">👑👑</span>
-                                    <span v-else-if="g.rank === 3">👑</span>
-                                    <span v-else class="text-slate-300 text-xs font-normal">--</span>
+                            <div class="p-3">
+                                <!-- 🌟 名次與分數並列 🌟 -->
+                                <div class="flex items-center justify-center gap-2 my-1">
+                                    <span v-if="g.rank <= 3" :class="['text-xs font-black px-2 py-0.5 rounded-lg border',
+                                        g.rank === 1 ? 'bg-amber-100 text-amber-900 border-amber-300' :
+                                        g.rank === 2 ? 'bg-slate-200 text-slate-800 border-slate-300' :
+                                        'bg-amber-50 text-amber-900 border-amber-200']">
+                                        {{ g.rank === 1 ? '🥇 第 1 名' : g.rank === 2 ? '🥈 第 2 名' : '🥉 第 3 名' }}
+                                    </span>
+                                    <div>
+                                        <span class="text-3xl font-black text-indigo-700">{{ g.totalScore }}</span>
+                                        <span class="text-xs font-bold text-slate-400 ml-1">分</span>
+                                    </div>
                                 </div>
 
-                                <div class="my-2">
-                                    <span class="text-3xl font-black text-indigo-700">{{ g.totalScore }}</span>
-                                    <span class="text-xs font-bold text-slate-400 ml-1">分</span>
+                                <!-- 🌟 皇冠標記在分數正下方 🌟 -->
+                                <div class="h-6 flex items-center justify-center text-amber-500 text-base my-1">
+                                    <span v-if="g.rank === 1" title="第 1 名：3個皇冠">👑👑👑</span>
+                                    <span v-else-if="g.rank === 2" title="第 2 名：2個皇冠">👑👑</span>
+                                    <span v-else-if="g.rank === 3" title="第 3 名：1個皇冠">👑</span>
+                                    <span v-else class="text-slate-300 text-xs font-normal">--</span>
                                 </div>
 
                                 <div class="text-[10px] text-slate-500 space-y-0.5 bg-slate-50 p-2 rounded-xl border border-slate-100 text-left">
@@ -449,7 +459,7 @@
                     </div>
                 </div>
 
-                <!-- 🌟 月冠軍統計大表 (只要沒有按「重新分組」，每週封存成績都持續累計在同一張表內) 🌟 -->
+                <!-- 🌟 月冠軍統計大表 (免寫日記 3次/2次/1次 + 皇冠在下方) 🌟 -->
                 <div class="space-y-6 mt-6">
                     <div v-for="cycle in displayCycleList" :key="'cycleCard'+cycle.cycleId"
                         :class="['rounded-3xl border-2 shadow-sm p-5 space-y-4 bg-white transition',
@@ -468,8 +478,8 @@
                                     </span>
                                 </h3>
                                 <p class="text-xs text-slate-500 mt-0.5">
-                                    目前累積週次：{{ cycle.weeks.length > 0 ? cycle.weeks.map(w=>'第'+w+'週').join('、') : '尚無封存週次' }}。
-                                    只要未按「重新分組」，每週封存成績皆會匯入此同一個大表中累加！
+                                    👑 每週第 1 名 +3分(👑👑👑) • 第 2 名 +2分(👑👑) • 第 3 名 +1分(👑)。
+                                    🎁 <strong>月冠軍特別獎勵：第一名免寫日記三次、第二名二次、第三名一次！</strong> 每週前三名另有糖果獎勵。
                                 </p>
                             </div>
 
@@ -492,7 +502,7 @@
                             </div>
                         </div>
 
-                        <!-- 依該期累積的週數動態呈現表格 (共同在同一個表格中累加) -->
+                        <!-- 表格 -->
                         <div class="overflow-x-auto">
                             <table class="w-full text-center text-xs border-collapse">
                                 <thead>
@@ -515,7 +525,7 @@
                                         <td v-for="g in 6" :key="'tdWScore'+cycle.cycleId+'_'+w+'_'+g" class="p-2.5 border border-slate-200 font-black text-slate-800">
                                             <div v-if="editingCycleId !== cycle.cycleId">
                                                 <div class="text-sm font-black">{{ getDynamicWeekGroupScore(w, g) }} 分</div>
-                                                <div class="text-[11px] text-amber-500 font-normal">
+                                                <div class="text-[11px] text-amber-500 font-normal mt-0.5">
                                                     {{ getDynamicWeekRankCrown(w, g) }}
                                                 </div>
                                             </div>
@@ -526,7 +536,7 @@
                                         </td>
                                     </tr>
 
-                                    <!-- 🏆 當期累計總分與名次 (同一期大表自動累加) -->
+                                    <!-- 🏆 當期累計總分與名次 -->
                                     <tr class="bg-amber-50 font-black text-amber-950">
                                         <td class="p-2.5 border border-slate-200 font-black">🏆 本期累計總分</td>
                                         <td v-for="g in 6" :key="'totalCycleG'+cycle.cycleId+'_'+g" class="p-2.5 border border-slate-200 text-indigo-700">
@@ -545,9 +555,9 @@
                                         </td>
                                     </tr>
 
-                                    <!-- 實體獎勵 (糖果) -->
+                                    <!-- 實體獎勵 (糖果 + 免寫日記) -->
                                     <tr class="bg-rose-50 text-rose-900 font-bold">
-                                        <td class="p-2 border border-slate-200">實體獎勵 (糖果)</td>
+                                        <td class="p-2 border border-slate-200">實體獎勵與免寫日記</td>
                                         <td v-for="g in 6" :key="'rewardCycleG'+cycle.cycleId+'_'+g" class="p-2 border border-slate-200">
                                             {{ getDynamicCycleRewardText(cycle, g) }}
                                         </td>
@@ -1262,21 +1272,16 @@
                     ];
 
                     const students = ref(defaultStudents);
-
-                    // 身份優先順序
                     const roleOrderPriority = { '教練': 1, '明星': 2, '替補': 3, '黑馬': 4 };
-
                     const roleInputs = ref({ '教練': '', '明星': '', '替補': '', '黑馬': '' });
                     const groupBatchInputs = ref(['', '', '', '', '', '']);
                     const draggedStudent = ref(null);
 
-                    // 歷屆分組每週封存成績 (key: 週次)
                     const weeklyHistory = ref({});
                     const archivedCompetitionWeeks = ref([]);
 
-                    // 🌟 核心期數架構：沒有重新分組前，全部成績都放入當前期數同一張大表中 🌟
                     const activeCycleId = ref(1);
-                    const completedCycleList = ref([]); // 每期結構: { cycleId, weeks: [1, 2, ...], isSettled, pointsAwarded }
+                    const completedCycleList = ref([]);
 
                     const ensureActiveCycleExists = () => {
                         let cur = completedCycleList.value.find(c => c.cycleId === activeCycleId.value);
@@ -1291,12 +1296,10 @@
                         }
                     };
 
-                    // 大表呈現：進行中的在最上方，歷史存檔往下移
                     const displayCycleList = computed(() => {
                         return [...completedCycleList.value].sort((a, b) => b.cycleId - a.cycleId);
                     });
 
-                    // 解鎖防錯修改暫存
                     const editingCycleId = ref(null);
                     const tempCycleScores = ref({});
 
@@ -1508,6 +1511,7 @@
                     const selectedGroupForLottery = ref(1);
                     const lotteryDrawCount = ref(1);
                     const drawnStudents = ref([]);
+                    const checkedDrawnSeats = ref([]);
                     const lotteryPointsToAward = ref(1);
 
                     // 密碼彈窗
@@ -1565,7 +1569,6 @@
                         }
                     };
 
-                    // 1. 黃點計算：滿 15 分得 1 顆黃點
                     const getYellowDotsCount = (s) => {
                         const score = (s.personalScore !== undefined) ? s.personalScore : (s.yellowPoints || 0);
                         return Math.floor(score / 15);
@@ -1577,7 +1580,6 @@
                         return (remainder / 15) * 100;
                     };
 
-                    // 2. 藍點手動累加
                     const commitManualBlueDot = (s) => {
                         const add = Number(s.manualBlueDots) || 0;
                         if (add <= 0) {
@@ -1590,7 +1592,6 @@
                         showToast(`${s.name} 已成功增加 ${add} 顆藍點，輸入框已重設為 0！`);
                     };
 
-                    // 3. 點數扣除與剩餘可換點數計算
                     const getStudentTotalEarnedPoints = (s) => {
                         const yellow = getYellowDotsCount(s);
                         const blue = s.manualBlueDotsAccumulated || 0;
@@ -1607,7 +1608,6 @@
                         st.redeemedPoints = (st.redeemedPoints || 0) + cost;
                     };
 
-                    // 兌換門市操作
                     const openStudentRedeemModal = (r) => {
                         selectedRewardForRedeem.value = r;
                         if (students.value.length > 0) {
@@ -1667,7 +1667,6 @@
                         }
                     };
 
-                    // 抽獎遊樂場操作
                     const drawPrizeFromWeightedPool = () => {
                         const available = weightedPrizeList.value.filter(p => p && p.count > 0);
                         if (available.length === 0) return '特別榮譽獎狀乙張';
@@ -1923,7 +1922,6 @@
                         return Math.max(0, 15 - violations);
                     };
 
-                    // 🌟 修正：若該週次成績「已經被封存」，即時卡片一律強制呈現 0 分 🌟
                     const getGroupDisplayScore = (gNum, week) => {
                         if (archivedCompetitionWeeks.value.includes(week)) {
                             return 0;
@@ -1960,12 +1958,11 @@
 
                         return scoreList.map(item => ({
                             ...item,
-                            rank: rankMap[item.groupNum].rank,
-                            isTie: rankMap[item.groupNum].isTie
+                            rank: item.totalScore > 0 ? rankMap[item.groupNum].rank : 6,
+                            isTie: rankMap[item.groupNum].isTie && item.totalScore > 0
                         }));
                     });
 
-                    // 當週結算常規得分
                     const awardAllZeroViolationBonus = () => {
                         const w = currentWeek.value;
                         if (isWeekSettled(w)) {
@@ -2014,7 +2011,6 @@
                         showToast(`第 ${w} 週常規記錄已成功封存鎖定！`);
                     };
 
-                    // 常規記錄封存後解鎖回溯修改機制
                     const requestUnlockWeek = (w) => {
                         currentWeek.value = w;
                         triggerPasswordProtectedAction(() => {
@@ -2037,7 +2033,6 @@
                         }, `請輸入密碼以解鎖第 ${w} 週`);
                     };
 
-                    // 🌟 核心修正：封存當週分組成績 ➔ 自動存入同一期大表 ➔ 即時成績徹底歸零 🌟
                     const archiveWeeklyCompetition = () => {
                         const w = currentWeek.value;
                         if (!isWeekArchived(w)) {
@@ -2045,15 +2040,13 @@
                             return;
                         }
 
-                        // 1. 抓取當前各組實時分數 (此時包含爬格子+抽籤+常規加分)
                         const currentScores = [1, 2, 3, 4, 5, 6].map(g => {
                             const climb = Number(groupDropdownScores.value[g - 1]) || 0;
                             const lottery = Number(groupLotteryScores.value[g - 1]) || 0;
                             const routine = isWeekSettled(w) ? calculateGroupRoutinePoints(g, w) : 0;
                             return climb + lottery + routine;
                         });
-                        
-                        // 2. 封存至每週歷史紀錄庫
+
                         weeklyHistory.value[w] = {
                             week: w,
                             date: new Date().toLocaleDateString(),
@@ -2063,7 +2056,6 @@
                             archivedCompetitionWeeks.value.push(w);
                         }
 
-                        // 3. 確保成績放入「當期」大表中 (同一期表格持續累加)
                         ensureActiveCycleExists();
                         const curCycle = completedCycleList.value.find(c => c.cycleId === activeCycleId.value);
                         if (curCycle && !curCycle.weeks.includes(w)) {
@@ -2071,7 +2063,6 @@
                             curCycle.weeks.sort((a, b) => a - b);
                         }
 
-                        // 4. 🌟 徹底歸零即時成績 🌟
                         groupLotteryScores.value = [0, 0, 0, 0, 0, 0];
                         groupDropdownScores.value = [0, 0, 0, 0, 0, 0];
 
@@ -2079,7 +2070,6 @@
                         showToast(`🎉 第 ${w} 週成績已成功封存至第 ${activeCycleId.value} 期大表，即時分組競賽成績已徹底歸零！`);
                     };
 
-                    // 取得特定週次某組分數 (直接由歷史封存讀取)
                     const getDynamicWeekGroupScore = (w, gNum) => {
                         if (weeklyHistory.value[w] && weeklyHistory.value[w].scores) {
                             return weeklyHistory.value[w].scores[gNum - 1] || 0;
@@ -2087,7 +2077,7 @@
                         return 0;
                     };
 
-                    // 皇冠標記
+                    // 皇冠標記 (第1名3個皇冠、第2名2個皇冠、第3名1個皇冠)
                     const getDynamicWeekRankCrown = (w, gNum) => {
                         if (!archivedCompetitionWeeks.value.includes(w)) return '';
                         const scores = [1, 2, 3, 4, 5, 6].map(g => ({ g, score: getDynamicWeekGroupScore(w, g) }));
@@ -2101,13 +2091,28 @@
                             }
                         });
                         const r = rankMap[gNum];
+                        if (getDynamicWeekGroupScore(w, gNum) === 0) return '';
                         if (r === 1) return '👑👑👑';
                         if (r === 2) return '👑👑';
                         if (r === 3) return '👑';
                         return '';
                     };
 
-                    // 某期累計總分 (在同一期表格中自動累加)
+                    const getDynamicWeekRankOnly = (w, gNum) => {
+                        if (!archivedCompetitionWeeks.value.includes(w)) return 6;
+                        const scores = [1, 2, 3, 4, 5, 6].map(g => ({ g, score: getDynamicWeekGroupScore(w, g) }));
+                        scores.sort((a, b) => b.score - a.score);
+                        const rankMap = {};
+                        scores.forEach((item, index) => {
+                            if (index > 0 && item.score === scores[index - 1].score) {
+                                rankMap[item.g] = rankMap[scores[index - 1].g];
+                            } else {
+                                rankMap[item.g] = index + 1;
+                            }
+                        });
+                        return rankMap[gNum] || 6;
+                    };
+
                     const getDynamicCycleTotalScore = (cycle, gNum) => {
                         let tot = 0;
                         cycle.weeks.forEach(w => {
@@ -2132,27 +2137,55 @@
 
                     const getDynamicCycleRankText = (cycle, gNum) => {
                         const r = getDynamicCycleRank(cycle, gNum);
-                        if (r === 1) return '🥇 第 1 名';
+                        const sc = getDynamicCycleTotalScore(cycle, gNum);
+                        if (sc === 0) return `第 ${r} 名`;
+                        if (r === 1) return '🥇 第 1 名 (🏆 月冠軍)';
                         if (r === 2) return '🥈 第 2 名';
                         if (r === 3) return '🥉 第 3 名';
                         return `第 ${r} 名`;
                     };
 
                     const getDynamicCycleBonusPts = (cycle, gNum) => {
-                        const r = getDynamicCycleRank(cycle, gNum);
-                        if (r === 1) return '+3 分';
-                        if (r === 2) return '+2 分';
-                        if (r === 3) return '+1 分';
-                        return '--';
+                        let totalBonus = 0;
+                        cycle.weeks.forEach(w => {
+                            const sc = getDynamicWeekGroupScore(w, gNum);
+                            const r = getDynamicWeekRankOnly(w, gNum);
+                            if (sc > 0) {
+                                if (r === 1) totalBonus += 3;
+                                else if (r === 2) totalBonus += 2;
+                                else if (r === 3) totalBonus += 1;
+                            }
+                        });
+                        return totalBonus > 0 ? `+${totalBonus} 分` : '--';
                     };
 
+                    // 🌟 修正：第一名免寫日記三次、第二名免寫日記二次、第三名免寫日記一次 🌟
                     const getDynamicCycleRewardText = (cycle, gNum) => {
                         const r = getDynamicCycleRank(cycle, gNum);
-                        if (r <= 3) return '🍬 1 個糖果獎勵';
+                        const sc = getDynamicCycleTotalScore(cycle, gNum);
+                        if (sc === 0) return '--';
+
+                        let candyCount = 0;
+                        cycle.weeks.forEach(w => {
+                            const weekScore = getDynamicWeekGroupScore(w, gNum);
+                            const weekRank = getDynamicWeekRankOnly(w, gNum);
+                            if (weekScore > 0 && weekRank <= 3) {
+                                candyCount += 1;
+                            }
+                        });
+
+                        const candyText = candyCount > 0 ? `🍬 ${candyCount} 個點心` : '';
+                        let diaryText = '';
+                        if (r === 1) diaryText = '🎁 免寫日記三次';
+                        else if (r === 2) diaryText = '🎁 免寫日記二次';
+                        else if (r === 3) diaryText = '🎁 免寫日記一次';
+
+                        if (diaryText && candyText) return `${diaryText} + ${candyText}`;
+                        if (diaryText) return diaryText;
+                        if (candyText) return candyText;
                         return '--';
                     };
 
-                    // 歷屆期數大表解鎖與防錯修改
                     const requestUnlockCycle = (cId) => {
                         triggerPasswordProtectedAction(() => {
                             editingCycleId.value = cId;
@@ -2200,16 +2233,21 @@
                             return;
                         }
                         for (let g = 1; g <= 6; g++) {
-                            const r = getDynamicCycleRank(cycle, g);
-                            let pts = 0;
-                            if (r === 1) pts = 3;
-                            else if (r === 2) pts = 2;
-                            else if (r === 3) pts = 1;
+                            let totalBonus = 0;
+                            cycle.weeks.forEach(w => {
+                                const sc = getDynamicWeekGroupScore(w, g);
+                                const r = getDynamicWeekRankOnly(w, g);
+                                if (sc > 0) {
+                                    if (r === 1) totalBonus += 3;
+                                    else if (r === 2) totalBonus += 2;
+                                    else if (r === 3) totalBonus += 1;
+                                }
+                            });
 
-                            if (pts > 0) {
+                            if (totalBonus > 0) {
                                 students.value.forEach(s => {
                                     if (s.group === g) {
-                                        s.personalScore = (s.personalScore || 0) + pts;
+                                        s.personalScore = (s.personalScore || 0) + totalBonus;
                                         s.yellowPoints = s.personalScore;
                                     }
                                 });
@@ -2217,10 +2255,9 @@
                         }
                         cycle.pointsAwarded = true;
                         saveStateToLocalStorage();
-                        showToast(`已為第 ${cId} 期前三名各組組員發放月冠軍個人加分！`);
+                        showToast(`已為第 ${cId} 期組員發放名次累計加分！免寫日記獎勵已登記！`);
                     };
 
-                    // 🌟 只有按下「重新分組」時，才正式結束此期，移到下方存檔並開啟新一期 🌟
                     const openConfirmResetCycleModal = () => {
                         ensureActiveCycleExists();
                         const curCycle = completedCycleList.value.find(c => c.cycleId === activeCycleId.value);
@@ -2235,7 +2272,6 @@
                                     curCycle.isSettled = true;
                                 }
 
-                                // 開啟新一期累計大表
                                 const nextId = activeCycleId.value + 1;
                                 activeCycleId.value = nextId;
                                 completedCycleList.value.push({
@@ -2245,7 +2281,6 @@
                                     pointsAwarded: false
                                 });
 
-                                // 即時分數歸零
                                 groupLotteryScores.value = [0, 0, 0, 0, 0, 0];
                                 groupDropdownScores.value = [0, 0, 0, 0, 0, 0];
 
@@ -2287,7 +2322,6 @@
                         showToast('全班所有學生個人加分、點數庫存、已兌換點數及兌換日誌已徹底歸零！');
                     };
 
-                    // 加分面板操作
                     const toggleStudentSelect = (seat) => {
                         const idx = selectedStudentSeats.value.indexOf(seat);
                         if (idx >= 0) selectedStudentSeats.value.splice(idx, 1);
@@ -2326,7 +2360,6 @@
                         showToast(`第 ${gNum} 組爬格子得分已更新！`);
                     };
 
-                    // 本地儲存與向下相容讀取
                     const saveStateToLocalStorage = () => {
                         try {
                             const storeData = {
@@ -2460,7 +2493,7 @@
                         groupLotteryScores, groupDropdownScores, currentWeek, routineData, archivedRoutineWeeks, settledRoutineLog,
                         weeklyHistory, archivedCompetitionWeeks, archiveWeeklyCompetition,
                         getDynamicWeekGroupScore, getDynamicWeekRankCrown, getDynamicCycleTotalScore,
-                        getDynamicCycleRankText, getDynamicCycleBonusPts, getDynamicCycleRewardText,
+                        getDynamicCycleRankText, getDynamicCycleBonusPts, getDynamicCycleRewardText, getDynamicCycleRank,
                         editingCycleId, tempCycleScores, requestUnlockCycle, saveCycleEditing, awardCyclePersonalPoints,
                         openConfirmResetCycleModal,
                         showConfirmModal, confirmModalTitle, confirmModalMessage, executeConfirmedAction,
